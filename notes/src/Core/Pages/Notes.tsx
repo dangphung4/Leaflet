@@ -1800,6 +1800,18 @@ export default function Notes() {
                   </div>
                 </PopoverContent>
               </Popover>
+
+              {/* Add Import Dialog here */}
+              <ImportDialog onImportComplete={loadInitialData}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                >
+                  <ImportIcon className="h-4 w-4" />
+                </Button>
+              </ImportDialog>
+
               <Button
                 variant="default"
                 size="icon"
