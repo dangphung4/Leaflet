@@ -41,6 +41,7 @@ import {
   StrikethroughIcon
 } from 'lucide-react';
 import { BlockNoteEditor } from '@blocknote/core';
+import { useGoogleLogin } from '@react-oauth/google';
 
 /**
  *
@@ -64,6 +65,8 @@ export default function EditNote() {
     underline: false,
     strikethrough: false
   });
+  const [isExporting, setIsExporting] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   // Set up real-time listener for the note
   useEffect(() => {
@@ -188,14 +191,36 @@ export default function EditNote() {
     }
   };
 
-  // Add access token type and declaration
-  const currentAccessToken: string | null = null;
+  const login = useGoogleLogin({
+    onSuccess: async (response) => {
+      setAccessToken(response.access_token);
+      // After getting the token, retry the export
+      if (pendingExport.current) {
+        handleExport('googledoc');
+        pendingExport.current = false;
+      }
+    },
+    onError: (error) => {
+      console.error('Google Login Error:', error);
+      toast({
+        title: "Login Failed",
+        description: "Failed to login to Google",
+        variant: "destructive"
+      });
+      setIsExporting(false);
+    },
+    scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/documents'
+  });
+
+  // Reference to track if we need to export after login
+  const pendingExport = useRef(false);
 
   // Update handleExport function to handle docx case properly
   const handleExport = async (format: 'markdown' | 'txt' | 'html' | 'docx' | 'googledoc') => {
     if (!note) return;
 
     try {
+      setIsExporting(true);
       let content = '';
       const parsedContent = JSON.parse(note.content);
       let docxBlob: Blob | null = null;
@@ -227,7 +252,12 @@ export default function EditNote() {
           }
           break;
         case 'googledoc':
-          await exportToGoogleDocs(parsedContent);
+          if (!accessToken) {
+            pendingExport.current = true;
+            login();
+            return;
+          }
+          await exportToGoogleDocs(note.content, accessToken);
           break;
       }
 
@@ -242,6 +272,8 @@ export default function EditNote() {
         description: error instanceof Error ? error.message : "Failed to export note",
         variant: "destructive",
       });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -400,6 +432,10 @@ export default function EditNote() {
                 children: textContent,
                 bullet: {
                   level: 0
+                },
+                indent: {
+                  left: 720,
+                  firstLine: 360
                 }
               });
             case 'numberedListItem':
@@ -408,6 +444,10 @@ export default function EditNote() {
                 numbering: {
                   reference: 'default-numbering',
                   level: 0
+                },
+                indent: {
+                  left: 720,
+                  firstLine: 360
                 }
               });
             case 'checkListItem':
@@ -431,100 +471,178 @@ export default function EditNote() {
     return await Packer.toBlob(doc);
   };
 
-  const exportToGoogleDocs = async (blocks: any[]) => {
-    if (!currentAccessToken) {
-      throw new Error('Not authenticated with Google');
-    }
+  const exportToGoogleDocs = async (content: string | any[], token: string) => {
+    try {
+      // Parse the blocks if they're a string
+      const parsedBlocks = typeof content === 'string' ? JSON.parse(content) : content;
 
-    // Convert blocks to Google Docs format
-    const content = {
-      title: note?.title || 'Untitled Note',
-      body: {
-        content: blocks.map(block => {
-          const textContent = block.content.map((c: any) => ({
-            textRun: {
-              content: c.text || '',
-              textStyle: {
-                bold: c.styles?.bold,
-                italic: c.styles?.italic,
-                underline: c.styles?.underline,
-                strikethrough: c.styles?.strike,
-              },
+      // First create an empty document
+      const createResponse = await fetch('https://docs.googleapis.com/v1/documents', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: note?.title || 'Untitled Note'
+        })
+      });
+
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json();
+        console.error('Google Docs API Error:', errorData);
+        throw new Error(errorData.error?.message || 'Failed to create Google Doc');
+      }
+
+      const { documentId } = await createResponse.json();
+
+      // Then batch update the document with content
+      const requests = [
+        // Insert title
+        {
+          insertText: {
+            location: {
+              index: 1
             },
-          }));
-
-          switch (block.type) {
-            case 'heading':
-              return {
-                paragraph: {
-                  elements: textContent,
-                  paragraphStyle: {
-                    namedStyleType: `HEADING_${block.props?.level || 1}`,
-                  },
-                },
-              };
-            case 'bulletListItem':
-              return {
-                paragraph: {
-                  elements: textContent,
-                  bullet: {
-                    listId: 'bullet-list',
-                    nestingLevel: 0,
-                  },
-                },
-              };
-            case 'numberedListItem':
-              return {
-                paragraph: {
-                  elements: textContent,
-                  bullet: {
-                    listId: 'number-list',
-                    nestingLevel: 0,
-                  },
-                },
-              };
-            case 'checkListItem':
-              return {
-                paragraph: {
-                  elements: [
-                    {
-                      textRun: {
-                        content: block.props?.checked ? '☒ ' : '☐ ',
-                      },
-                    },
-                    ...textContent,
-                  ],
-                },
-              };
-            default:
-              return {
-                paragraph: {
-                  elements: textContent,
-                },
-              };
+            text: `${note?.title || 'Untitled Note'}\n\n`
           }
-        }),
-      },
-    };
+        },
+        {
+          updateParagraphStyle: {
+            range: {
+              startIndex: 1,
+              endIndex: (note?.title || 'Untitled Note').length + 1
+            },
+            paragraphStyle: {
+              namedStyleType: 'HEADING_1'
+            },
+            fields: 'namedStyleType'
+          }
+        }
+      ];
 
-    // Create new Google Doc
-    const response = await fetch('https://docs.googleapis.com/v1/documents', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${currentAccessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(content),
-    });
+      // Add content blocks
+      let currentIndex = (note?.title || 'Untitled Note').length + 3; // +3 for title + two newlines
 
-    if (!response.ok) {
-      throw new Error('Failed to create Google Doc');
+      parsedBlocks.forEach((block: any) => {
+        const text = block.content.map((c: any) => c.text || '').join('') + '\n';
+        
+        // Insert text
+        requests.push({
+          insertText: {
+            location: { index: currentIndex },
+            text
+          }
+        });
+
+        const endIndex = currentIndex + text.length;
+
+        // Apply text styling
+        block.content.forEach((c: any) => {
+          if (c.text && (c.styles?.bold || c.styles?.italic || c.styles?.underline || c.styles?.strike)) {
+            const textStart = currentIndex + text.indexOf(c.text);
+            const textEnd = textStart + c.text.length;
+
+            if (c.styles?.bold) {
+              requests.push({
+                updateTextStyle: {
+                  range: { startIndex: textStart, endIndex: textEnd },
+                  textStyle: { bold: true },
+                  fields: 'bold'
+                }
+              });
+            }
+            if (c.styles?.italic) {
+              requests.push({
+                updateTextStyle: {
+                  range: { startIndex: textStart, endIndex: textEnd },
+                  textStyle: { italic: true },
+                  fields: 'italic'
+                }
+              });
+            }
+            if (c.styles?.underline) {
+              requests.push({
+                updateTextStyle: {
+                  range: { startIndex: textStart, endIndex: textEnd },
+                  textStyle: { underline: true },
+                  fields: 'underline'
+                }
+              });
+            }
+            if (c.styles?.strike) {
+              requests.push({
+                updateTextStyle: {
+                  range: { startIndex: textStart, endIndex: textEnd },
+                  textStyle: { strikethrough: true },
+                  fields: 'strikethrough'
+                }
+              });
+            }
+          }
+        });
+
+        // Apply block styling
+        switch (block.type) {
+          case 'heading': {
+            const level = block.props?.level || 1;
+            requests.push({
+              updateParagraphStyle: {
+                range: { startIndex: currentIndex, endIndex },
+                paragraphStyle: {
+                  namedStyleType: `HEADING_${level}`
+                },
+                fields: 'namedStyleType'
+              }
+            });
+            break;
+          }
+          case 'bulletListItem':
+            requests.push({
+              createParagraphBullets: {
+                range: { startIndex: currentIndex, endIndex },
+                bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
+              }
+            });
+            break;
+          case 'numberedListItem':
+            requests.push({
+              createParagraphBullets: {
+                range: { startIndex: currentIndex, endIndex },
+                bulletPreset: 'NUMBERED_DECIMAL'
+              }
+            });
+            break;
+        }
+
+        currentIndex = endIndex;
+      });
+
+      console.log('Batch update requests:', JSON.stringify(requests, null, 2));
+
+      const updateResponse = await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requests
+        })
+      });
+
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json();
+        console.error('Google Docs API Error:', errorData);
+        throw new Error(errorData.error?.message || 'Failed to update Google Doc');
+      }
+
+      // Open the new document in a new tab
+      window.open(`https://docs.google.com/document/d/${documentId}/edit`, '_blank');
+    } catch (error) {
+      console.error('Error in exportToGoogleDocs:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    
-    // Open the new document in a new tab
-    window.open(`https://docs.google.com/document/d/${data.documentId}/edit`, '_blank');
   };
 
   // Update the effect with proper type checking
@@ -718,8 +836,15 @@ export default function EditNote() {
                       <FileIcon className="h-4 w-4 mr-2" />
                       Word Document (.docx)
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleExport('googledoc')}>
-                      <FileTextIcon className="h-4 w-4 mr-2" />
+                    <DropdownMenuItem 
+                      onClick={() => handleExport('googledoc')}
+                      disabled={isExporting}
+                    >
+                      {isExporting ? (
+                        <Loader2Icon className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <FileTextIcon className="h-4 w-4 mr-2" />
+                      )}
                       Google Doc
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
