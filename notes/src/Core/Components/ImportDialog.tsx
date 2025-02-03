@@ -113,16 +113,18 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
   const [showGoogleDocs, setShowGoogleDocs] = useState(false);
   const { toast } = useToast();
 
-  // Check for existing token on mount
+  // Check for existing token on mount and when dialog opens
   useEffect(() => {
     const checkExistingToken = async () => {
-      const token = await db.getGoogleToken();
-      if (token) {
-        loadGoogleDocs(token);
+      if (isOpen) {
+        const token = await db.getGoogleToken();
+        if (token) {
+          loadGoogleDocs(token);
+        }
       }
     };
     checkExistingToken();
-  }, []);
+  }, [isOpen]);
 
   const loadGoogleDocs = async (accessToken: string) => {
     try {
@@ -137,6 +139,11 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
       );
 
       if (!driveResponse.ok) {
+        if (driveResponse.status === 401) {
+          // Token expired, trigger login
+          login();
+          return;
+        }
         throw new Error('Failed to fetch documents');
       }
 
@@ -459,6 +466,16 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
     }
   };
 
+  const handleGoogleDocsClick = async () => {
+    const token = await db.getGoogleToken();
+    if (token) {
+      setShowGoogleDocs(true);
+      loadGoogleDocs(token);
+    } else {
+      login();
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
       setIsOpen(open);
@@ -542,8 +559,8 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
             )}
           </div>
         ) : (
-          <div className="grid w-full items-center gap-4">
-            <div className="flex flex-col items-center justify-center gap-4 p-4 border-2 border-dashed rounded-lg">
+          <div className="space-y-8">
+            <div className="flex flex-col items-center gap-4">
               <FileIcon className="h-8 w-8 text-muted-foreground" />
               <Input
                 type="file"
@@ -562,11 +579,10 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
 
             <Button
               variant="outline"
-              onClick={() => login()}
+              onClick={handleGoogleDocsClick}
               disabled={isImporting || isLoadingDocs}
               className="w-full"
             >
-              <FileTextIcon className="mr-2 h-4 w-4" />
               Import from Google Docs
             </Button>
           </div>
