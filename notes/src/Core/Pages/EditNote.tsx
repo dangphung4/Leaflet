@@ -508,7 +508,7 @@ export default function EditNote() {
       const { documentId } = await createResponse.json();
 
       // Then batch update the document with content
-      const requests = [
+      const requests: any[] = [
         // Insert title
         {
           insertText: {

@@ -57,6 +57,10 @@ interface GoogleDocsParagraphElement {
 // Store the access token in memory
 let currentAccessToken: string | null = null;
 
+
+/**
+ *
+ */
 async function getGoogleDocsContent(accessToken: string, docId: string): Promise<{ content: string; title: string }> {
   try {
     const response = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
@@ -555,7 +559,10 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
   );
 }
 
-function GoogleDocsPicker({ onSelect, onClose }: GoogleDocsPickerProps) {
+/**
+ *
+ */
+export function GoogleDocsPicker({ onSelect, onClose }: GoogleDocsPickerProps) {
   const [docs, setDocs] = useState<GoogleDoc[]>([]);
   const [loading, setLoading] = useState(false);
 
