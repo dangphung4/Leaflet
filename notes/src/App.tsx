@@ -27,7 +27,6 @@ import Folders from './Core/Pages/Folders';
 import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem, Command } from "@/components/ui/command";
 import { ThemeProvider } from './Core/Theme/ThemeProvider';
 import { ProductivityDashboard } from './Core/Pages/Productivity';
-import { GoogleAuthProvider } from './Core/Auth/GoogleAuthProvider';
 
 /**
  * CommandPalette component provides a command dialog for quick navigation and actions.
@@ -292,19 +291,17 @@ function FooterWrapper() {
  */
 function App() {
   return (
-    <GoogleAuthProvider>
-      <ThemeProvider>
-        <BrowserRouter>
-          <div className="min-h-screen flex flex-col bg-background text-foreground">
-            <DesktopNav darkMode={false} toggleDarkMode={() => {}} />
-            <MobileNav darkMode={false} toggleDarkMode={() => {}} />
-            <AppRoutes />
-            <FooterWrapper />
-            <PWABadge />
-          </div>
-        </BrowserRouter>
-      </ThemeProvider>
-    </GoogleAuthProvider>
+    <ThemeProvider>
+      <BrowserRouter>
+        <div className="min-h-screen flex flex-col bg-background text-foreground">
+          <DesktopNav darkMode={false} toggleDarkMode={() => {}} />
+          <MobileNav darkMode={false} toggleDarkMode={() => {}} />
+          <AppRoutes />
+          <FooterWrapper />
+          <PWABadge />
+        </div>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 
