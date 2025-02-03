@@ -55,9 +55,29 @@ interface GoogleDocsParagraphElement {
 }
 
 /**
+ * Asynchronously retrieves the content and title of a Google Document using the Google Docs API.
  *
- * @param accessToken
- * @param docId
+ * @param {string} accessToken - The OAuth 2.0 access token for authenticating the request.
+ * @param {string} docId - The unique identifier of the Google Document to fetch.
+ *
+ * @returns {Promise<{ content: string; title: string }>} A promise that resolves to an object containing
+ * the document's content as plain text and its title. If the document is untitled, the title will be
+ * set to 'Untitled Document'.
+ *
+ * @throws {Error} Throws an error if the document cannot be fetched or if no content is found in the document.
+ *
+ * @example
+ * const accessToken = 'your_access_token';
+ * const docId = 'your_document_id';
+ *
+ * getGoogleDocsContent(accessToken, docId)
+ *   .then(doc => {
+ *     console.log('Document Title:', doc.title);
+ *     console.log('Document Content:', doc.content);
+ *   })
+ *   .catch(error => {
+ *     console.error('Error:', error);
+ *   });
  */
 async function getGoogleDocsContent(accessToken: string, docId: string): Promise<{ content: string; title: string }> {
   try {
@@ -100,10 +120,18 @@ async function getGoogleDocsContent(accessToken: string, docId: string): Promise
 }
 
 /**
+ * A dialog component for importing documents from Google Drive or local files.
  *
- * @param root0
- * @param root0.children
- * @param root0.onImportComplete
+ * @param {Object} props - The properties for the ImportDialog component.
+ * @param {React.ReactNode} props.children - The content to be displayed as the trigger for the dialog.
+ * @param {Function} props.onImportComplete - Callback function to be called when the import is completed.
+ *
+ * @returns {JSX.Element} The rendered ImportDialog component.
+ *
+ * @example
+ * <ImportDialog onImportComplete={() => console.log('Import completed!')}>
+ *   <Button>Import Document</Button>
+ * </ImportDialog>
  */
 export function ImportDialog({ children, onImportComplete }: ImportDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -115,6 +143,26 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
 
   // Check for existing token on mount and when dialog opens
   useEffect(() => {
+    /**
+     * Asynchronously checks for an existing Google token in the database.
+     * If a token is found, it proceeds to load Google Docs using the retrieved token.
+     *
+     * @async
+     * @function checkExistingToken
+     * @returns {Promise<void>} A promise that resolves when the operation is complete.
+     *
+     * @throws {Error} Throws an error if there is an issue retrieving the token from the database.
+     *
+     * @example
+     * // Example usage of checkExistingToken
+     * checkExistingToken()
+     *   .then(() => {
+     *     console.log('Token checked and Google Docs loaded if token exists.');
+     *   })
+     *   .catch((error) => {
+     *     console.error('Error checking token:', error);
+     *   });
+     */
     const checkExistingToken = async () => {
       if (isOpen) {
         const token = await db.getGoogleToken();
@@ -126,6 +174,29 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
     checkExistingToken();
   }, [isOpen]);
 
+  /**
+   * Asynchronously loads Google Docs from the user's Google Drive.
+   *
+   * This function fetches documents of the MIME type 'application/vnd.google-apps.document'
+   * from Google Drive using the provided access token. It updates the state to indicate
+   * loading status and handles errors that may occur during the fetch operation.
+   *
+   * @param {string} accessToken - The OAuth 2.0 access token for authenticating the request.
+   *
+   * @throws {Error} Throws an error if the fetch operation fails or if the response is not ok.
+   *
+   * @returns {Promise<void>} A promise that resolves when the documents have been loaded and state updated.
+   *
+   * @example
+   * const token = 'your_access_token_here';
+   * loadGoogleDocs(token)
+   *   .then(() => {
+   *     console.log('Documents loaded successfully');
+   *   })
+   *   .catch((error) => {
+   *     console.error('Error loading documents:', error);
+   *   });
+   */
   const loadGoogleDocs = async (accessToken: string) => {
     try {
       setIsLoadingDocs(true);
@@ -189,6 +260,27 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
     scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/documents.readonly'
   });
 
+  /**
+   * Imports a Google Document by its ID and creates a note from its content.
+   *
+   * This asynchronous function retrieves the Google Document's content using a token,
+   * converts the text into a block note format, and saves it to the database as a new note.
+   * It handles token retrieval, user login if necessary, and displays success or error messages.
+   *
+   * @param {string} docId - The ID of the Google Document to import.
+   * @returns {Promise<void>} - A promise that resolves when the import process is complete.
+   *
+   * @throws {Error} - Throws an error if the import process fails due to issues such as
+   *                   invalid tokens or network errors.
+   *
+   * @example
+   * handleGoogleDocsImport('12345abcde')
+   *   .then(() => console.log('Import completed successfully'))
+   *   .catch(err => console.error('Import failed:', err));
+   *
+   * @example
+   * // If the token is invalid, the function will prompt the user to log in again.
+   */
   const handleGoogleDocsImport = async (docId: string) => {
     try {
       setIsImporting(true);
@@ -232,6 +324,26 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
     }
   };
 
+  /**
+   * Converts HTML content into BlockNote format.
+   *
+   * This asynchronous function creates a temporary BlockNote editor instance
+   * to parse the provided HTML content and convert it into a structured BlockNote
+   * format. The resulting blocks are then serialized into a JSON string.
+   *
+   * @param {string} htmlContent - The HTML content to be converted.
+   * @returns {Promise<string>} A promise that resolves to a JSON string representing
+   * the BlockNote format of the provided HTML content.
+   *
+   * @throws {Error} Throws an error if the HTML content cannot be parsed into
+   * BlockNote blocks.
+   *
+   * @example
+   * const html = '<h1>Hello World</h1>';
+   * convertToBlockNoteContent(html).then(blockNoteJson => {
+   *   console.log(blockNoteJson);
+   * });
+   */
   const convertToBlockNoteContent = async (htmlContent: string) => {
     // Create a temporary editor to convert HTML to BlockNote format
     const editor = BlockNoteEditor.create();
@@ -239,6 +351,24 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
     return JSON.stringify(blocks);
   };
 
+  /**
+   * Converts a plain text string into a BlockNote format, organizing the content into blocks
+   * such as headings, paragraphs, and bullet list items based on specific formatting rules.
+   *
+   * The function processes the input text line by line, identifying section headers (all caps),
+   * bullet points (starting with '•'), and indented text. It groups these elements into a structured
+   * array of blocks that can be serialized into JSON format.
+   *
+   * @param {string} text - The input text to be converted into BlockNote format.
+   * @returns {string} A JSON string representing the structured BlockNote content.
+   *
+   * @example
+   * const inputText = "HEADER\n\n• Item 1\n• Item 2\n\nThis is a paragraph.";
+   * const blockNoteContent = convertTextToBlockNoteContent(inputText);
+   * console.log(blockNoteContent);
+   *
+   * @throws {Error} Throws an error if the input text is not a valid string.
+   */
   const convertTextToBlockNoteContent = (text: string) => {
     // Convert text to BlockNote format with proper paragraphs
     const blocks: PartialBlock[] = [];
@@ -299,6 +429,27 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
     return JSON.stringify(blocks);
   };
 
+  /**
+   * Asynchronously extracts text from a PDF document represented as an ArrayBuffer.
+   *
+   * This function utilizes the pdfjsLib library to load the PDF document and processes each page
+   * to extract text while preserving formatting such as bullet points and indentation. The extracted
+   * text is returned as a single string.
+   *
+   * @param {ArrayBuffer} arrayBuffer - The ArrayBuffer containing the PDF data.
+   * @returns {Promise<string>} A promise that resolves to the extracted text from the PDF.
+   *
+   * @throws {Error} Throws an error if the text extraction fails due to issues with the PDF document.
+   *
+   * @example
+   * const pdfData = await fetch('path/to/pdf').then(res => res.arrayBuffer());
+   * try {
+   *   const text = await extractTextFromPDF(pdfData);
+   *   console.log(text);
+   * } catch (error) {
+   *   console.error(error.message);
+   * }
+   */
   const extractTextFromPDF = async (arrayBuffer: ArrayBuffer): Promise<string> => {
     try {
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
@@ -413,6 +564,21 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
     }
   };
 
+  /**
+   * Handles the file upload event and processes the uploaded file.
+   * Supports .docx, .pdf, and .txt file formats.
+   *
+   * @param {React.ChangeEvent<HTMLInputElement>} event - The change event triggered by the file input.
+   * @returns {Promise<void>} A promise that resolves when the file has been processed and the note created.
+   *
+   * @throws {Error} Throws an error if the uploaded file type is unsupported.
+   *
+   * @example
+   * // Usage in a React component
+   * <input type="file" onChange={handleFileUpload} />
+   *
+   * @async
+   */
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -612,10 +778,27 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
 }
 
 /**
+ * A component that allows users to select Google Docs from their Google Drive.
+ * It handles user authentication and fetches the list of documents available in the user's drive.
  *
- * @param root0
- * @param root0.onSelect
- * @param root0.onClose
+ * @param {Object} params - The parameters for the component.
+ * @param {Function} params.onSelect - Callback function that is called when a document is selected.
+ * @param {Function} params.onClose - Callback function that is called when the dialog is closed.
+ *
+ * @returns {JSX.Element} The rendered component.
+ *
+ * @throws {Error} Throws an error if the document fetching fails or if Google login fails.
+ *
+ * @example
+ * const handleSelect = (docId) => {
+ *   console.log('Selected document ID:', docId);
+ * };
+ *
+ * const handleClose = () => {
+ *   console.log('Dialog closed');
+ * };
+ *
+ * <GoogleDocsPicker onSelect={handleSelect} onClose={handleClose} />
  */
 export function GoogleDocsPicker({ onSelect, onClose }: GoogleDocsPickerProps) {
   const [docs, setDocs] = useState<GoogleDoc[]>([]);

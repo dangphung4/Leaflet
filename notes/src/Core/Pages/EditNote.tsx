@@ -44,7 +44,17 @@ import { BlockNoteEditor } from '@blocknote/core';
 import { useGoogleLogin } from '@react-oauth/google';
 
 /**
+ * A functional component that allows users to edit a note.
+ * It handles fetching the note from a database, displaying it in an editor,
+ * and providing options to save, delete, and export the note in various formats.
  *
+ * @returns {JSX.Element} The rendered component.
+ *
+ * @throws {Error} Throws an error if there is an issue loading or saving the note.
+ *
+ * @example
+ * // Usage in a parent component
+ * <EditNote />
  */
 export default function EditNote() {
   const { id } = useParams();
@@ -219,6 +229,26 @@ export default function EditNote() {
   });
 
   // Update handleExport function
+  /**
+   * Exports a note in the specified format.
+   *
+   * This function handles the export of a note's content into various formats including
+   * markdown, plain text, HTML, DOCX, and Google Docs. It manages the necessary authentication
+   * for Google Docs and provides feedback on the success or failure of the export operation.
+   *
+   * @param {('markdown' | 'txt' | 'html' | 'docx' | 'googledoc')} format - The format to export the note to.
+   * @returns {Promise<void>} A promise that resolves when the export operation is complete.
+   *
+   * @throws {Error} Throws an error if the export fails due to an invalid token or other issues.
+   *
+   * @example
+   * // Export a note as markdown
+   * await handleExport('markdown');
+   *
+   * @example
+   * // Export a note as a Google Doc
+   * await handleExport('googledoc');
+   */
   const handleExport = async (format: 'markdown' | 'txt' | 'html' | 'docx' | 'googledoc') => {
     if (!note) return;
 
@@ -417,6 +447,32 @@ export default function EditNote() {
     return html;
   };
 
+  /**
+   * Converts an array of content blocks into a DOCX Blob.
+   *
+   * This asynchronous function takes an array of blocks, where each block can represent different types of content,
+   * such as headings, bullet lists, numbered lists, and checklist items. It constructs a DOCX document based on the
+   * provided blocks and returns it as a Blob.
+   *
+   * @param {any[]} blocks - An array of content blocks to be converted into a DOCX document.
+   * Each block should have a 'type' property indicating its type (e.g., 'heading', 'bulletListItem', etc.)
+   * and a 'content' property containing the text content.
+   *
+   * @returns {Promise<Blob>} A promise that resolves to a Blob representing the generated DOCX document.
+   *
+   * @throws {Error} Throws an error if the document generation fails.
+   *
+   * @example
+   * const blocks = [
+   *   { type: 'heading', props: { level: 1 }, content: [{ text: 'Document Title', styles: {} }] },
+   *   { type: 'bulletListItem', content: [{ text: 'First item', styles: {} }] },
+   *   { type: 'numberedListItem', content: [{ text: 'Second item', styles: {} }] },
+   * ];
+   *
+   * convertToDocx(blocks).then(blob => {
+   *   // Handle the generated DOCX Blob (e.g., save it or upload it)
+   * });
+   */
   const convertToDocx = async (blocks: any[]): Promise<Blob> => {
     const doc = new Document({
       sections: [{
@@ -486,6 +542,29 @@ export default function EditNote() {
     return await Packer.toBlob(doc);
   };
 
+  /**
+   * Exports content to a new Google Docs document.
+   *
+   * This asynchronous function takes content in the form of a string or an array of content blocks,
+   * and a Google API token to authenticate the request. It creates a new document, inserts the content,
+   * applies formatting, and opens the document in a new tab.
+   *
+   * @param {string | any[]} content - The content to be exported. Can be a JSON string or an array of content blocks.
+   * @param {string} token - The OAuth 2.0 token for Google API authentication.
+   * @throws {Error} Throws an error if the document creation or update fails, with details from the Google Docs API.
+   * @returns {Promise<void>} A promise that resolves when the document has been successfully created and updated.
+   *
+   * @example
+   * const content = [
+   *   { type: 'heading', props: { level: 1 }, content: [{ text: 'Document Title', styles: {} }] },
+   *   { type: 'bulletListItem', content: [{ text: 'First item', styles: { bold: true } }] },
+   *   { type: 'numberedListItem', content: [{ text: 'Second item', styles: {} }] }
+   * ];
+   * const token = 'YOUR_GOOGLE_API_TOKEN';
+   * exportToGoogleDocs(content, token)
+   *   .then(() => console.log('Document exported successfully'))
+   *   .catch(error => console.error('Export failed:', error));
+   */
   const exportToGoogleDocs = async (content: string | any[], token: string) => {
     try {
       // Parse the blocks if they're a string
