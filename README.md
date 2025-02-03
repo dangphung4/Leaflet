@@ -28,7 +28,21 @@ VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
+VITE_GOOGLE_CLIENT_ID=your_google_oauth_client_id  # Required for Google Docs import/export
+
+# optional for now
+VITE_GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
+VITE_APP_URL=your_app_url
 ```
+
+For production deployment on Vercel:
+
+1. Add these environment variables in your Vercel project settings
+2. For Google OAuth:
+   - Create OAuth 2.0 credentials in [Google Cloud Console](https://console.cloud.google.com)
+   - Add your Vercel domain to authorized JavaScript origins
+   - Add your Vercel domain to authorized redirect URIs
+   - Set the `VITE_GOOGLE_CLIENT_ID` in Vercel environment variables
 
 ---
 

@@ -54,7 +54,23 @@ VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
+VITE_GOOGLE_CLIENT_ID=your_google_oauth_client_id  # Required for Google Docs import/export
 ```
+
+5. **Google OAuth Setup**
+
+For Google Docs integration:
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project or select existing one
+3. Enable Google Drive API and Google Docs API
+4. Create OAuth 2.0 credentials
+5. Add authorized JavaScript origins:
+   - `http://localhost:5173` (for development)
+   - Your production domain
+6. Add authorized redirect URIs:
+   - `http://localhost:5173` (for development)
+   - Your production domain
+7. Copy the client ID to your `.env` file
 
 5. **Development Server**
 
