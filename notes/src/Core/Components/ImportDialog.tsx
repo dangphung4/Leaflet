@@ -100,10 +100,18 @@ async function getGoogleDocsContent(accessToken: string, docId: string): Promise
 }
 
 /**
+ * A dialog component for importing documents from Google Drive or local files.
  *
- * @param root0
- * @param root0.children
- * @param root0.onImportComplete
+ * @param {Object} props - The properties for the ImportDialog component.
+ * @param {ReactNode} props.children - The children elements to be rendered inside the dialog trigger.
+ * @param {function} props.onImportComplete - Callback function to be called when the import process is completed.
+ *
+ * @returns {JSX.Element} The rendered ImportDialog component.
+ *
+ * @example
+ * <ImportDialog onImportComplete={() => console.log('Import completed!')}>
+ *   <Button>Import Document</Button>
+ * </ImportDialog>
  */
 export function ImportDialog({ children, onImportComplete }: ImportDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -115,6 +123,29 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
 
   // Check for existing token on mount and when dialog opens
   useEffect(() => {
+    /**
+     * Checks if a Google token exists and loads Google Docs if the token is available.
+     *
+     * This asynchronous function first verifies if the application is open. If it is,
+     * it attempts to retrieve the Google token from the database. If a token is found,
+     * it proceeds to load Google Docs using the retrieved token.
+     *
+     * @async
+     * @function checkExistingToken
+     * @returns {Promise<void>} A promise that resolves when the operation is complete.
+     *
+     * @throws {Error} Throws an error if there is an issue retrieving the token from the database.
+     *
+     * @example
+     * // Example usage of checkExistingToken
+     * checkExistingToken()
+     *   .then(() => {
+     *     console.log('Google Docs loaded successfully.');
+     *   })
+     *   .catch((error) => {
+     *     console.error('Failed to load Google Docs:', error);
+     *   });
+     */
     const checkExistingToken = async () => {
       if (isOpen) {
         const token = await db.getGoogleToken();
@@ -126,6 +157,24 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
     checkExistingToken();
   }, [isOpen]);
 
+  /**
+   * Asynchronously loads Google Docs from the user's Google Drive.
+   *
+   * This function fetches documents of the MIME type 'application/vnd.google-apps.document'
+   * from Google Drive using the provided access token. It handles loading states,
+   * error management, and token expiration scenarios.
+   *
+   * @param {string} accessToken - The OAuth 2.0 access token for authenticating the request.
+   *
+   * @throws {Error} Throws an error if the fetch operation fails for reasons other than token expiration.
+   *
+   * @example
+   * // Usage example
+   * const token = 'your_access_token_here';
+   * loadGoogleDocs(token)
+   *   .then(() => console.log('Documents loaded successfully'))
+   *   .catch(error => console.error('Error loading documents:', error));
+   */
   const loadGoogleDocs = async (accessToken: string) => {
     try {
       setIsLoadingDocs(true);
@@ -466,6 +515,27 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
     }
   };
 
+  /**
+   * Handles the click event for accessing Google Docs.
+   *
+   * This asynchronous function retrieves a Google authentication token from the database.
+   * If the token is available, it sets the state to show Google Docs and loads the documents using the token.
+   * If the token is not available, it initiates the login process.
+   *
+   * @async
+   * @function handleGoogleDocsClick
+   * @returns {Promise<void>} A promise that resolves when the operation is complete.
+   *
+   * @throws {Error} Throws an error if there is an issue retrieving the token or loading Google Docs.
+   *
+   * @example
+   * // Example usage of handleGoogleDocsClick
+   * handleGoogleDocsClick().then(() => {
+   *   console.log('Google Docs loaded successfully.');
+   * }).catch((error) => {
+   *   console.error('Error loading Google Docs:', error);
+   * });
+   */
   const handleGoogleDocsClick = async () => {
     const token = await db.getGoogleToken();
     if (token) {
