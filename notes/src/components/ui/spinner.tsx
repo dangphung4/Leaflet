@@ -35,6 +35,14 @@ interface SpinnerContentProps
   children?: React.ReactNode;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.size
+ * @param root0.show
+ * @param root0.children
+ * @param root0.className
+ */
 export function Spinner({ size, show, children, className }: SpinnerContentProps) {
   return (
     <span className={spinnerVariants({ show })}>

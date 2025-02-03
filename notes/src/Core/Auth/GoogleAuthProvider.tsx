@@ -4,6 +4,11 @@ interface GoogleAuthProviderProps {
   children: React.ReactNode;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ */
 export function GoogleAuthProvider({ children }: GoogleAuthProviderProps) {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 

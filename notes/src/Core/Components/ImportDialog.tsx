@@ -60,6 +60,8 @@ let currentAccessToken: string | null = null;
 
 /**
  *
+ * @param accessToken
+ * @param docId
  */
 async function getGoogleDocsContent(accessToken: string, docId: string): Promise<{ content: string; title: string }> {
   try {
@@ -101,6 +103,12 @@ async function getGoogleDocsContent(accessToken: string, docId: string): Promise
   }
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ * @param root0.onImportComplete
+ */
 export function ImportDialog({ children, onImportComplete }: ImportDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -561,6 +569,9 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
 
 /**
  *
+ * @param root0
+ * @param root0.onSelect
+ * @param root0.onClose
  */
 export function GoogleDocsPicker({ onSelect, onClose }: GoogleDocsPickerProps) {
   const [docs, setDocs] = useState<GoogleDoc[]>([]);
