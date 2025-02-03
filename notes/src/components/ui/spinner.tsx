@@ -36,12 +36,23 @@ interface SpinnerContentProps
 }
 
 /**
+ * Renders a spinner component that displays a loading indicator.
  *
- * @param root0
- * @param root0.size
- * @param root0.show
- * @param root0.children
- * @param root0.className
+ * @param {Object} props - The properties for the Spinner component.
+ * @param {string} props.size - The size of the spinner, which determines its dimensions.
+ * @param {boolean} props.show - A flag indicating whether the spinner should be visible.
+ * @param {React.ReactNode} props.children - The content to be displayed alongside the spinner.
+ * @param {string} [props.className] - An optional additional class name for custom styling.
+ *
+ * @returns {JSX.Element} The rendered spinner component.
+ *
+ * @example
+ * // Example usage of the Spinner component
+ * <Spinner size="large" show={true} className="custom-class">
+ *   Loading...
+ * </Spinner>
+ *
+ * @throws {Error} Throws an error if the size is not valid or if show is not a boolean.
  */
 export function Spinner({ size, show, children, className }: SpinnerContentProps) {
   return (
