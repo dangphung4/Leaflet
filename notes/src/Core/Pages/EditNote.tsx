@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { CheckIcon } from '@radix-ui/react-icons';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 import { 
   MoreVerticalIcon, 
   ChevronLeftIcon, 
@@ -187,13 +188,17 @@ export default function EditNote() {
     }
   };
 
-  // Add the export handler function
-  const handleExport = async (format: 'markdown' | 'txt' | 'html') => {
+  // Add access token type and declaration
+  const currentAccessToken: string | null = null;
+
+  // Update handleExport function to handle docx case properly
+  const handleExport = async (format: 'markdown' | 'txt' | 'html' | 'docx' | 'googledoc') => {
     if (!note) return;
 
     try {
       let content = '';
       const parsedContent = JSON.parse(note.content);
+      let docxBlob: Blob | null = null;
       
       switch (format) {
         case 'markdown':
@@ -208,17 +213,33 @@ export default function EditNote() {
           content = convertToHTML(parsedContent);
           downloadFile(`${note.title || 'Untitled'}.html`, content);
           break;
+        case 'docx':
+          docxBlob = await convertToDocx(parsedContent);
+          if (docxBlob) {
+            const url = URL.createObjectURL(docxBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${note.title || 'Untitled'}.docx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }
+          break;
+        case 'googledoc':
+          await exportToGoogleDocs(parsedContent);
+          break;
       }
 
       toast({
         title: "Note exported",
-        description: `Successfully exported as ${format.toUpperCase()}`,
+        description: `Successfully exported as ${format === 'googledoc' ? 'Google Doc' : format.toUpperCase()}`,
       });
     } catch (error) {
       console.error('Error exporting note:', error);
       toast({
         title: "Export failed",
-        description: "Failed to export note. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to export note",
         variant: "destructive",
       });
     }
@@ -349,6 +370,162 @@ export default function EditNote() {
     return html;
   };
 
+  const convertToDocx = async (blocks: any[]): Promise<Blob> => {
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: blocks.map(block => {
+          const textContent = block.content.map((c: any) => {
+            const text = new TextRun({
+              text: c.text || '',
+              bold: c.styles?.bold,
+              italics: c.styles?.italic,
+              underline: c.styles?.underline,
+              strike: c.styles?.strike,
+            });
+            return text;
+          });
+
+          switch (block.type) {
+            case 'heading': {
+              const level = block.props?.level || 1;
+              const headingType = `HEADING_${level}` as keyof typeof HeadingLevel;
+              return new Paragraph({
+                children: textContent,
+                heading: HeadingLevel[headingType],
+              });
+            }
+            case 'bulletListItem':
+              return new Paragraph({
+                children: textContent,
+                bullet: {
+                  level: 0
+                }
+              });
+            case 'numberedListItem':
+              return new Paragraph({
+                children: textContent,
+                numbering: {
+                  reference: 'default-numbering',
+                  level: 0
+                }
+              });
+            case 'checkListItem':
+              return new Paragraph({
+                children: [
+                  new TextRun({
+                    text: block.props?.checked ? '☒ ' : '☐ ',
+                  }),
+                  ...textContent
+                ],
+              });
+            default:
+              return new Paragraph({
+                children: textContent,
+              });
+          }
+        }),
+      }],
+    });
+
+    return await Packer.toBlob(doc);
+  };
+
+  const exportToGoogleDocs = async (blocks: any[]) => {
+    if (!currentAccessToken) {
+      throw new Error('Not authenticated with Google');
+    }
+
+    // Convert blocks to Google Docs format
+    const content = {
+      title: note?.title || 'Untitled Note',
+      body: {
+        content: blocks.map(block => {
+          const textContent = block.content.map((c: any) => ({
+            textRun: {
+              content: c.text || '',
+              textStyle: {
+                bold: c.styles?.bold,
+                italic: c.styles?.italic,
+                underline: c.styles?.underline,
+                strikethrough: c.styles?.strike,
+              },
+            },
+          }));
+
+          switch (block.type) {
+            case 'heading':
+              return {
+                paragraph: {
+                  elements: textContent,
+                  paragraphStyle: {
+                    namedStyleType: `HEADING_${block.props?.level || 1}`,
+                  },
+                },
+              };
+            case 'bulletListItem':
+              return {
+                paragraph: {
+                  elements: textContent,
+                  bullet: {
+                    listId: 'bullet-list',
+                    nestingLevel: 0,
+                  },
+                },
+              };
+            case 'numberedListItem':
+              return {
+                paragraph: {
+                  elements: textContent,
+                  bullet: {
+                    listId: 'number-list',
+                    nestingLevel: 0,
+                  },
+                },
+              };
+            case 'checkListItem':
+              return {
+                paragraph: {
+                  elements: [
+                    {
+                      textRun: {
+                        content: block.props?.checked ? '☒ ' : '☐ ',
+                      },
+                    },
+                    ...textContent,
+                  ],
+                },
+              };
+            default:
+              return {
+                paragraph: {
+                  elements: textContent,
+                },
+              };
+          }
+        }),
+      },
+    };
+
+    // Create new Google Doc
+    const response = await fetch('https://docs.googleapis.com/v1/documents', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${currentAccessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(content),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create Google Doc');
+    }
+
+    const data = await response.json();
+    
+    // Open the new document in a new tab
+    window.open(`https://docs.google.com/document/d/${data.documentId}/edit`, '_blank');
+  };
 
   // Update the effect with proper type checking
   useEffect(() => {
@@ -536,6 +713,14 @@ export default function EditNote() {
                     <DropdownMenuItem onClick={() => handleExport('html')}>
                       <CodeIcon className="h-4 w-4 mr-2" />
                       HTML
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExport('docx')}>
+                      <FileIcon className="h-4 w-4 mr-2" />
+                      Word Document (.docx)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExport('googledoc')}>
+                      <FileTextIcon className="h-4 w-4 mr-2" />
+                      Google Doc
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
