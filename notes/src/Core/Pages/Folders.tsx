@@ -1039,7 +1039,16 @@ interface StoredFoldersPreferences {
 }
 
 /**
+ * A functional component that manages and displays a list of folders and notes.
+ * It provides functionalities to create, edit, delete, and organize folders,
+ * as well as to search and sort them based on user preferences.
  *
+ * @component
+ * @returns {JSX.Element} The rendered component containing folder management UI.
+ *
+ * @example
+ * // Usage in a parent component
+ * <Folders />
  */
 export default function Folders() {
   const navigate = useNavigate();
@@ -1119,6 +1128,29 @@ export default function Folders() {
     }));
   };
 
+  /**
+   * Asynchronously loads user folders and notes from the database,
+   * constructs a hierarchical structure of folders, and updates the
+   * application state with the retrieved data.
+   *
+   * This function performs the following steps:
+   * 1. Fetches user folders and notes concurrently using Promise.all.
+   * 2. Maps notes to their respective folder IDs.
+   * 3. Constructs a tree structure of folders based on parent-child relationships.
+   * 4. Updates the state with sorted folders and notes.
+   *
+   * @async
+   * @function loadData
+   * @throws {Error} Throws an error if there is an issue loading folders or notes.
+   *
+   * @example
+   * // Call the loadData function to load and display user data
+   * loadData().then(() => {
+   *   console.log('Data loaded successfully');
+   * }).catch((error) => {
+   *   console.error('Failed to load data:', error);
+   * });
+   */
   const loadData = async () => {
     try {
       const [userFolders, userNotes] = await Promise.all([
