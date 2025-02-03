@@ -1959,6 +1959,24 @@ class NotesDB extends Dexie {
   }
 
   // Google OAuth token methods
+  /**
+   * Saves a Google authentication token for the currently authenticated user.
+   *
+   * This method first checks if a user is authenticated. If not, it throws an error.
+   * It then calculates the expiration date of the token based on the provided `expiresIn` value,
+   * deletes any existing tokens associated with the user, and finally saves the new token
+   * along with its expiration date.
+   *
+   * @param {string} token - The Google access token to be saved.
+   * @param {number} expiresIn - The duration in seconds until the token expires.
+   * @returns {Promise<void>} A promise that resolves when the token has been successfully saved.
+   * @throws {Error} Throws an error if the user is not authenticated.
+   *
+   * @example
+   * const token = "your_access_token";
+   * const expiresIn = 3600; // 1 hour
+   * await saveGoogleToken(token, expiresIn);
+   */
   async saveGoogleToken(token: string, expiresIn: number): Promise<void> {
     const user = auth.currentUser;
     if (!user) throw new Error("User not authenticated");
@@ -1976,6 +1994,27 @@ class NotesDB extends Dexie {
     });
   }
 
+  /**
+   * Retrieves the Google access token for the currently authenticated user.
+   *
+   * This method checks if a user is currently authenticated. If not, it returns null.
+   * If the user is authenticated, it attempts to find the user's Google token in the database.
+   * If a token is found, it checks if the token has expired. If the token is expired, it deletes
+   * the token from the database and returns null. If the token is valid, it returns the access token.
+   *
+   * @returns {Promise<string | null>} A promise that resolves to the Google access token as a string,
+   * or null if no valid token is found or if the user is not authenticated.
+   *
+   * @throws {Error} Throws an error if there is an issue retrieving the token from the database.
+   *
+   * @example
+   * const token = await getGoogleToken();
+   * if (token) {
+   *   console.log('Access Token:', token);
+   * } else {
+   *   console.log('No valid access token found.');
+   * }
+   */
   async getGoogleToken(): Promise<string | null> {
     const user = auth.currentUser;
     if (!user) return null;
