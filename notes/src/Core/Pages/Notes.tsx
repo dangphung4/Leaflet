@@ -151,6 +151,18 @@ const getBlockNoteContent = (jsonString: string) => {
   }
 };
 
+// Add this sorting function near the top of the file, after the interfaces
+const sortFolders = (folders: Folder[]): Folder[] => {
+  return [...folders].sort((a, b) => {
+    // First sort by favorites
+    if (a.isFavorite && !b.isFavorite) return -1;
+    if (!a.isFavorite && b.isFavorite) return 1;
+    
+    // Then sort by name
+    return a.name.localeCompare(b.name);
+  });
+};
+
 /**
  * A functional component that represents a note card in the application.
  * It displays note details, allows for interaction such as pinning, editing tags,
@@ -1935,7 +1947,7 @@ export default function Notes() {
                       All folders
                     </div>
                   </SelectItem>
-                  {folders.map((folder) => (
+                  {sortFolders(folders).map((folder) => (
                     <SelectItem key={folder.id} value={folder.id}>
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2">
@@ -2143,7 +2155,7 @@ export default function Notes() {
                     All folders
                   </div>
                 </SelectItem>
-                {folders.map((folder) => (
+                {sortFolders(folders).map((folder) => (
                   <SelectItem key={folder.id} value={folder.id}>
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center gap-2">
