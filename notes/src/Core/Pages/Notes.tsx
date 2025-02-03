@@ -639,7 +639,7 @@ const NoteCard = ({
                                 <span>No Folder</span>
                               </div>
                             </SelectItem>
-                            {folders.map((folder) => (
+                            {sortFolders(folders).map((folder) => (
                               <SelectItem key={folder.id} value={folder.id}>
                                 <div className="flex items-center gap-2">
                                   <FolderIcon
