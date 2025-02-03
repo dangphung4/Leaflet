@@ -87,6 +87,8 @@ import ShareDialog from "../Components/ShareDialog";
 import { cn } from "@/lib/utils";
 import { db } from "../Database/db";
 import { TagSelector } from "@/components/TagSelector";
+import { ImportDialog } from "../Components/ImportDialog";
+import { ImportIcon } from "lucide-react";
 
 interface StoredNotesPreferences {
   activeTab: "my-notes" | "shared";
@@ -1314,21 +1316,81 @@ export default function Notes() {
     localStorage.setItem("notes-view", view);
   }, [view]);
 
-  useEffect(() => {
+  const loadInitialData = async () => {
     if (!user) return;
+    
+    setIsLoading(true);
+    try {
+      // Load owned notes
+      const notesRef = collection(firestore, "notes");
+      const ownedQuery = query(
+        notesRef,
+        where("ownerUserId", "==", user.uid)
+      );
+      const ownedSnapshot = await getDocs(ownedQuery);
 
-    const loadInitialData = async () => {
-      setIsLoading(true);
-      try {
-        // Load owned notes
-        const notesRef = collection(firestore, "notes");
-        const ownedQuery = query(
-          notesRef,
-          where("ownerUserId", "==", user.uid)
+      const ownedNotes = ownedSnapshot.docs.map((doc) => ({
+        ...doc.data(),
+        firebaseId: doc.id,
+        createdAt: doc.data().createdAt?.toDate(),
+        updatedAt: doc.data().updatedAt?.toDate(),
+        lastEditedAt: doc.data().lastEditedAt?.toDate(),
+      })) as Note[];
+
+      // Load all shares for owned notes
+      const sharesRef = collection(firestore, "shares");
+      const ownedNotesShares = query(
+        sharesRef,
+        where(
+          "noteId",
+          "in",
+          ownedNotes.map((note) => note.firebaseId)
+        )
+      );
+
+      // Load shares where current user is recipient
+      const sharedWithMeQuery = query(
+        sharesRef,
+        where("email", "==", user.email)
+      );
+
+      // Get both share types
+      const [ownedSharesSnapshot, sharedWithMeSnapshot] = await Promise.all([
+        getDocs(ownedNotesShares),
+        getDocs(sharedWithMeQuery),
+      ]);
+
+      // Combine all shares
+      const allShares = [
+        ...ownedSharesSnapshot.docs.map((doc) => ({
+          ...doc.data(),
+          id: doc.id,
+          createdAt: doc.data().createdAt?.toDate(),
+          updatedAt: doc.data().updatedAt?.toDate(),
+        })),
+        ...sharedWithMeSnapshot.docs.map((doc) => ({
+          ...doc.data(),
+          id: doc.id,
+          createdAt: doc.data().createdAt?.toDate(),
+          updatedAt: doc.data().updatedAt?.toDate(),
+        })),
+      ] as unknown as SharePermission[];
+
+      setShares(allShares);
+
+      // Load shared notes
+      const sharedNoteIds = sharedWithMeSnapshot.docs.map(
+        (doc) => doc.data().noteId
+      );
+
+      if (sharedNoteIds.length > 0) {
+        const sharedQuery = query(
+          collection(firestore, "notes"),
+          where(documentId(), "in", sharedNoteIds)
         );
-        const ownedSnapshot = await getDocs(ownedQuery);
 
-        const ownedNotes = ownedSnapshot.docs.map((doc) => ({
+        const sharedSnapshot = await getDocs(sharedQuery);
+        const sharedNotes = sharedSnapshot.docs.map((doc) => ({
           ...doc.data(),
           firebaseId: doc.id,
           createdAt: doc.data().createdAt?.toDate(),
@@ -1336,89 +1398,38 @@ export default function Notes() {
           lastEditedAt: doc.data().lastEditedAt?.toDate(),
         })) as Note[];
 
-        // Load all shares for owned notes
-        const sharesRef = collection(firestore, "shares");
-        const ownedNotesShares = query(
-          sharesRef,
-          where(
-            "noteId",
-            "in",
-            ownedNotes.map((note) => note.firebaseId)
-          )
-        );
-
-        // Load shares where current user is recipient
-        const sharedWithMeQuery = query(
-          sharesRef,
-          where("email", "==", user.email)
-        );
-
-        // Get both share types
-        const [ownedSharesSnapshot, sharedWithMeSnapshot] = await Promise.all([
-          getDocs(ownedNotesShares),
-          getDocs(sharedWithMeQuery),
-        ]);
-
-        // Combine all shares
-        const allShares = [
-          ...ownedSharesSnapshot.docs.map((doc) => ({
-            ...doc.data(),
-            id: doc.id,
-            createdAt: doc.data().createdAt?.toDate(),
-            updatedAt: doc.data().updatedAt?.toDate(),
-          })),
-          ...sharedWithMeSnapshot.docs.map((doc) => ({
-            ...doc.data(),
-            id: doc.id,
-            createdAt: doc.data().createdAt?.toDate(),
-            updatedAt: doc.data().updatedAt?.toDate(),
-          })),
-        ] as unknown as SharePermission[];
-
-        setShares(allShares);
-
-        // Load shared notes
-        const sharedNoteIds = sharedWithMeSnapshot.docs.map(
-          (doc) => doc.data().noteId
-        );
-
-        if (sharedNoteIds.length > 0) {
-          const sharedQuery = query(
-            collection(firestore, "notes"),
-            where(documentId(), "in", sharedNoteIds)
-          );
-
-          const sharedSnapshot = await getDocs(sharedQuery);
-          const sharedNotes = sharedSnapshot.docs.map((doc) => ({
-            ...doc.data(),
-            firebaseId: doc.id,
-            createdAt: doc.data().createdAt?.toDate(),
-            updatedAt: doc.data().updatedAt?.toDate(),
-            lastEditedAt: doc.data().lastEditedAt?.toDate(),
-          })) as Note[];
-
-          // Combine owned and shared notes
-          const uniqueNotes = [...ownedNotes];
-          sharedNotes.forEach((sharedNote) => {
-            if (
-              !uniqueNotes.some(
-                (note) => note.firebaseId === sharedNote.firebaseId
-              )
-            ) {
-              uniqueNotes.push(sharedNote);
-            }
-          });
-          setNotes(uniqueNotes);
-        } else {
-          setNotes(ownedNotes);
-        }
-      } catch (error) {
-        console.error("Error loading initial data:", error);
-      } finally {
-        setIsLoading(false);
+        // Combine owned and shared notes
+        const uniqueNotes = [...ownedNotes];
+        sharedNotes.forEach((sharedNote) => {
+          if (
+            !uniqueNotes.some(
+              (note) => note.firebaseId === sharedNote.firebaseId
+            )
+          ) {
+            uniqueNotes.push(sharedNote);
+          }
+        });
+        setNotes(uniqueNotes);
+      } else {
+        setNotes(ownedNotes);
       }
-    };
 
+      // Also load tags and folders
+      const tags = await db.getTags();
+      setAllTags(tags);
+
+      const userFolders = await db.getFolders();
+      setFolders(userFolders);
+    } catch (error) {
+      console.error("Error loading initial data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Use loadInitialData in useEffect
+  useEffect(() => {
+    if (!user) return;
     loadInitialData();
   }, [user]);
 
@@ -1789,6 +1800,18 @@ export default function Notes() {
                   </div>
                 </PopoverContent>
               </Popover>
+
+              {/* Add Import Dialog here */}
+              <ImportDialog onImportComplete={loadInitialData}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                >
+                  <ImportIcon className="h-4 w-4" />
+                </Button>
+              </ImportDialog>
+
               <Button
                 variant="default"
                 size="icon"
@@ -1825,6 +1848,14 @@ export default function Notes() {
                   <LayoutListIcon className="h-4 w-4" />
                 </Button>
               </div>
+              <ImportDialog onImportComplete={loadInitialData}>
+                <Button
+                  variant="outline"
+                  className="rounded-full h-8"
+                >
+                  <ImportIcon className="mr-2 h-4 w-4" /> Import
+                </Button>
+              </ImportDialog>
               <Button
                 onClick={() => navigate("/notes/new")}
                 className="bg-primary hover:bg-primary/90 rounded-full h-8"
