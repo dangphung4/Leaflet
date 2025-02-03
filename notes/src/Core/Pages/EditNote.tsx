@@ -194,10 +194,23 @@ export default function EditNote() {
   const login = useGoogleLogin({
     onSuccess: async (response) => {
       setAccessToken(response.access_token);
-      // After getting the token, retry the export
-      if (pendingExport.current) {
-        handleExport('googledoc');
-        pendingExport.current = false;
+      // Immediately try to export after getting the token
+      try {
+        setIsExporting(true);
+        await exportToGoogleDocs(note?.content || '[]', response.access_token);
+        toast({
+          title: "Note exported",
+          description: "Successfully exported as Google Doc",
+        });
+      } catch (error) {
+        console.error('Error exporting note:', error);
+        toast({
+          title: "Export failed",
+          description: error instanceof Error ? error.message : "Failed to export note",
+          variant: "destructive",
+        });
+      } finally {
+        setIsExporting(false);
       }
     },
     onError: (error) => {
@@ -212,10 +225,7 @@ export default function EditNote() {
     scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/documents'
   });
 
-  // Reference to track if we need to export after login
-  const pendingExport = useRef(false);
-
-  // Update handleExport function to handle docx case properly
+  // Update handleExport function
   const handleExport = async (format: 'markdown' | 'txt' | 'html' | 'docx' | 'googledoc') => {
     if (!note) return;
 
@@ -253,7 +263,6 @@ export default function EditNote() {
           break;
         case 'googledoc':
           if (!accessToken) {
-            pendingExport.current = true;
             login();
             return;
           }
@@ -261,10 +270,12 @@ export default function EditNote() {
           break;
       }
 
-      toast({
-        title: "Note exported",
-        description: `Successfully exported as ${format === 'googledoc' ? 'Google Doc' : format.toUpperCase()}`,
-      });
+      if (format !== 'googledoc') { // Don't show success toast for Google Doc here since it's handled in login callback
+        toast({
+          title: "Note exported",
+          description: `Successfully exported as ${format.toUpperCase()}`,
+        });
+      }
     } catch (error) {
       console.error('Error exporting note:', error);
       toast({
@@ -609,7 +620,7 @@ export default function EditNote() {
             requests.push({
               createParagraphBullets: {
                 range: { startIndex: currentIndex, endIndex },
-                bulletPreset: 'NUMBERED_DECIMAL'
+                bulletPreset: 'NUMBERED_DECIMAL_ALPHA_ROMAN'
               }
             });
             break;
