@@ -100,8 +100,10 @@ async function getGoogleDocsContent(accessToken: string, docId: string): Promise
 export function ImportDialog({ children, onImportComplete }: ImportDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [docs, setDocs] = useState<GoogleDoc[]>([]);
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false);
+  const [showGoogleDocs, setShowGoogleDocs] = useState(false);
   const { toast } = useToast();
-  const [showGooglePicker, setShowGooglePicker] = useState(false);
 
   const convertToBlockNoteContent = async (htmlContent: string) => {
     // Create a temporary editor to convert HTML to BlockNote format
@@ -339,7 +341,6 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
 
   const handleGoogleDocsImport = async (docId: string) => {
     try {
-      setShowGooglePicker(false);
       setIsImporting(true);
       
       if (!currentAccessToken) {
@@ -377,15 +378,34 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
   const login = useGoogleLogin({
     onSuccess: async (response) => {
       try {
+        setIsLoadingDocs(true);
         currentAccessToken = response.access_token;
-        setShowGooglePicker(true);
+        
+        const driveResponse = await fetch(
+          'https://www.googleapis.com/drive/v3/files?q=mimeType%3D%27application/vnd.google-apps.document%27&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc',
+          {
+            headers: {
+              'Authorization': `Bearer ${response.access_token}`,
+            }
+          }
+        );
+
+        if (!driveResponse.ok) {
+          throw new Error('Failed to fetch documents');
+        }
+
+        const data = await driveResponse.json();
+        setDocs(data.files || []);
+        setShowGoogleDocs(true);
       } catch (error) {
-        console.error('Google Login Error:', error);
+        console.error('Error listing docs:', error);
         toast({
-          title: "Login Failed",
-          description: "Failed to login to Google",
+          title: "Failed to load documents",
+          description: "Could not fetch your Google Docs",
           variant: "destructive"
         });
+      } finally {
+        setIsLoadingDocs(false);
       }
     },
     onError: error => {
@@ -400,58 +420,137 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      setIsOpen(open);
+      if (!open) {
+        setShowGoogleDocs(false);
+        setDocs([]);
+      }
+    }}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Import Document</DialogTitle>
+          <DialogTitle>
+            {showGoogleDocs ? (
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  className="p-0 h-auto" 
+                  onClick={() => setShowGoogleDocs(false)}
+                >
+                  ←
+                </Button>
+                <span className="flex items-center gap-2">
+                  <FileTextIcon className="h-5 w-5" />
+                  Select Google Doc
+                </span>
+              </div>
+            ) : (
+              "Import Document"
+            )}
+          </DialogTitle>
           <DialogDescription>
-            Import a document from your computer or Google Docs
+            {showGoogleDocs 
+              ? "Choose a document to import from your Google Drive"
+              : "Import a document from your computer or Google Docs"}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid w-full items-center gap-4">
-          <div className="flex flex-col items-center justify-center gap-4 p-4 border-2 border-dashed rounded-lg">
-            <FileIcon className="h-8 w-8 text-muted-foreground" />
-            <Input
-              type="file"
-              accept=".docx,.pdf,.txt"
-              onChange={handleFileUpload}
-              disabled={isImporting}
-              className="max-w-xs"
-            />
+        {showGoogleDocs ? (
+          <div className="flex-1 min-h-0">
+            {isLoadingDocs ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-8">
+                <Spinner size="large" />
+                <p className="text-sm text-muted-foreground">Loading your documents...</p>
+              </div>
+            ) : docs.length > 0 ? (
+              <ScrollArea className="h-[400px] rounded-md border p-2">
+                <div className="space-y-1">
+                  {docs.map((doc) => (
+                    <Button
+                      key={doc.id}
+                      variant="ghost"
+                      className="w-full justify-start px-2 py-4 h-auto"
+                      onClick={() => handleGoogleDocsImport(doc.id)}
+                      disabled={isImporting}
+                    >
+                      <div className="flex items-start gap-3">
+                        <FileTextIcon className="h-5 w-5 mt-0.5 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0 text-left">
+                          <div className="font-medium mb-1 truncate">{doc.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Modified {format(new Date(doc.modifiedTime), 'MMM d, yyyy h:mm a')}
+                          </div>
+                        </div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-4 py-8">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                  <FileTextIcon className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div className="text-center">
+                  <h3 className="font-medium mb-1">No documents found</h3>
+                  <p className="text-sm text-muted-foreground">
+                    No Google Docs were found in your account
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-          
-          <div className="flex items-center">
-            <div className="flex-grow border-t border-gray-200" />
-            <span className="px-4 text-gray-500 text-sm">OR</span>
-            <div className="flex-grow border-t border-gray-200" />
-          </div>
+        ) : (
+          <div className="grid w-full items-center gap-4">
+            <div className="flex flex-col items-center justify-center gap-4 p-4 border-2 border-dashed rounded-lg">
+              <FileIcon className="h-8 w-8 text-muted-foreground" />
+              <Input
+                type="file"
+                accept=".docx,.pdf,.txt"
+                onChange={handleFileUpload}
+                disabled={isImporting}
+                className="max-w-xs"
+              />
+            </div>
+            
+            <div className="flex items-center">
+              <div className="flex-grow border-t border-gray-200" />
+              <span className="px-4 text-gray-500 text-sm">OR</span>
+              <div className="flex-grow border-t border-gray-200" />
+            </div>
 
-          <Button
-            variant="outline"
-            onClick={() => login()}
-            disabled={isImporting}
-            className="w-full"
+            <Button
+              variant="outline"
+              onClick={() => login()}
+              disabled={isImporting || isLoadingDocs}
+              className="w-full"
+            >
+              <FileTextIcon className="mr-2 h-4 w-4" />
+              Import from Google Docs
+            </Button>
+          </div>
+        )}
+
+        <DialogFooter className="sm:justify-between">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setIsOpen(false);
+              setShowGoogleDocs(false);
+              setDocs([]);
+            }}
           >
-            <FileTextIcon className="mr-2 h-4 w-4" />
-            Import from Google Docs
-          </Button>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)}>
             Cancel
           </Button>
+          {isImporting && (
+            <div className="flex items-center gap-2">
+              <Spinner size="small" />
+              <span className="text-sm">Importing...</span>
+            </div>
+          )}
         </DialogFooter>
       </DialogContent>
-      
-      {showGooglePicker && (
-        <GoogleDocsPicker
-          onSelect={handleGoogleDocsImport}
-          onClose={() => setShowGooglePicker(false)}
-        />
-      )}
     </Dialog>
   );
 }
