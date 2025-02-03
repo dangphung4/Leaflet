@@ -10,12 +10,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { FileIcon } from "lucide-react";
+import { FileIcon, FileTextIcon } from "lucide-react";
 import mammoth from "mammoth";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "../Database/db";
 import { BlockNoteEditor, PartialBlock } from "@blocknote/core";
 import * as pdfjsLib from 'pdfjs-dist';
+import { useGoogleLogin } from '@react-oauth/google';
+import { toast } from 'sonner';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Spinner } from '@/components/ui/spinner';
 
 // Initialize PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -32,10 +36,67 @@ interface TextPosition {
   width: number;
 }
 
+interface GoogleDoc {
+  id: string;
+  name: string;
+}
+
+interface GoogleDocsPickerProps {
+  onSelect: (docId: string) => Promise<void>;
+  onClose: () => void;
+}
+
+interface GoogleDocsParagraphElement {
+  textRun?: {
+    content?: string;
+  };
+}
+
+// Store the access token in memory
+let currentAccessToken: string | null = null;
+
+async function getGoogleDocsContent(accessToken: string, docId: string): Promise<string> {
+  try {
+    const response = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch document');
+    }
+
+    const data = await response.json();
+    if (!data.body?.content) {
+      throw new Error('No content found in document');
+    }
+
+    // Convert Google Docs content to text format
+    let content = '';
+    for (const element of data.body.content) {
+      if (element.paragraph?.elements) {
+        const paragraphText = element.paragraph.elements
+          .map((e: GoogleDocsParagraphElement) => e.textRun?.content || '')
+          .join('');
+        if (paragraphText.trim()) {
+          content += paragraphText + '\n\n';
+        }
+      }
+    }
+
+    return content;
+  } catch (error) {
+    console.error('Error fetching Google Doc:', error);
+    throw error;
+  }
+}
+
 export function ImportDialog({ children, onImportComplete }: ImportDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
+  const [showGooglePicker, setShowGooglePicker] = useState(false);
 
   const convertToBlockNoteContent = async (htmlContent: string) => {
     // Create a temporary editor to convert HTML to BlockNote format
@@ -271,6 +332,68 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
     }
   };
 
+  const handleGoogleDocsImport = async (docId: string) => {
+    try {
+      setShowGooglePicker(false);
+      setIsImporting(true);
+      
+      if (!currentAccessToken) {
+        throw new Error('Not authenticated with Google');
+      }
+
+      const content = await getGoogleDocsContent(currentAccessToken, docId);
+      const blocks = convertTextToBlockNoteContent(content);
+      
+      await db.createNote({
+        title: 'Imported Google Doc',
+        content: blocks,
+        type: "note",
+      });
+      
+      toast({
+        title: "Import successful",
+        description: "Created new note from Google Doc",
+      });
+
+      setIsOpen(false);
+      onImportComplete?.();
+    } catch (error) {
+      console.error('Error importing Google Doc:', error);
+      toast({
+        title: "Import failed",
+        description: "Failed to import Google Doc",
+        variant: "destructive"
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const login = useGoogleLogin({
+    onSuccess: async (response) => {
+      try {
+        currentAccessToken = response.access_token;
+        setShowGooglePicker(true);
+      } catch (error) {
+        console.error('Google Login Error:', error);
+        toast({
+          title: "Login Failed",
+          description: "Failed to login to Google",
+          variant: "destructive"
+        });
+      }
+    },
+    onError: error => {
+      console.error('Google Login Error:', error);
+      toast({
+        title: "Login Failed",
+        description: "Failed to login to Google",
+        variant: "destructive"
+      });
+    },
+    scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/documents.readonly'
+  });
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -278,7 +401,7 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
         <DialogHeader>
           <DialogTitle>Import Document</DialogTitle>
           <DialogDescription>
-            Import a document from your computer. Supported formats: .docx, .pdf, .txt
+            Import a document from your computer or Google Docs
           </DialogDescription>
         </DialogHeader>
 
@@ -293,6 +416,22 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
               className="max-w-xs"
             />
           </div>
+          
+          <div className="flex items-center">
+            <div className="flex-grow border-t border-gray-200" />
+            <span className="px-4 text-gray-500 text-sm">OR</span>
+            <div className="flex-grow border-t border-gray-200" />
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={() => login()}
+            disabled={isImporting}
+            className="w-full"
+          >
+            <FileTextIcon className="mr-2 h-4 w-4" />
+            Import from Google Docs
+          </Button>
         </div>
 
         <DialogFooter>
@@ -300,6 +439,85 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
             Cancel
           </Button>
         </DialogFooter>
+      </DialogContent>
+      
+      {showGooglePicker && (
+        <GoogleDocsPicker
+          onSelect={handleGoogleDocsImport}
+          onClose={() => setShowGooglePicker(false)}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+function GoogleDocsPicker({ onSelect, onClose }: GoogleDocsPickerProps) {
+  const [docs, setDocs] = useState<GoogleDoc[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const login = useGoogleLogin({
+    onSuccess: async (response) => {
+      try {
+        setLoading(true);
+        currentAccessToken = response.access_token;
+        
+        const driveResponse = await fetch('https://www.googleapis.com/drive/v3/files?q=mimeType%3D%27application/vnd.google-apps.document%27&fields=files(id,name)', {
+          headers: {
+            'Authorization': `Bearer ${response.access_token}`,
+          }
+        });
+
+        if (!driveResponse.ok) {
+          throw new Error('Failed to fetch documents');
+        }
+
+        const data = await driveResponse.json();
+        setDocs(data.files || []);
+      } catch (error) {
+        console.error('Error listing docs:', error);
+        toast.error('Failed to load Google Docs');
+      } finally {
+        setLoading(false);
+      }
+    },
+    onError: (error) => {
+      console.error('Google login failed:', error);
+      toast.error('Google login failed');
+    },
+    scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/documents.readonly',
+  });
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Select Google Doc</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          {loading ? (
+            <div className="flex justify-center p-4">
+              <Spinner />
+            </div>
+          ) : docs.length > 0 ? (
+            <ScrollArea className="h-[300px]">
+              {docs.map((doc) => (
+                <Button
+                  key={doc.id}
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => onSelect(doc.id)}
+                >
+                  <FileTextIcon className="mr-2 h-4 w-4" />
+                  {doc.name}
+                </Button>
+              ))}
+            </ScrollArea>
+          ) : (
+            <Button onClick={() => login()} className="w-full">
+              Sign in with Google
+            </Button>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
