@@ -152,6 +152,32 @@ const getBlockNoteContent = (jsonString: string) => {
 };
 
 // Add this sorting function near the top of the file, after the interfaces
+/**
+ * Sorts an array of Folder objects based on their favorite status and name.
+ *
+ * The sorting is performed in two steps:
+ * 1. Folders marked as favorites are prioritized over those that are not.
+ * 2. Within each group (favorites and non-favorites), folders are sorted alphabetically by their name.
+ *
+ * @param {Folder[]} folders - An array of Folder objects to be sorted.
+ * @returns {Folder[]} A new array of Folder objects sorted by favorite status and name.
+ *
+ * @example
+ * const folders = [
+ *   { name: 'Documents', isFavorite: false },
+ *   { name: 'Photos', isFavorite: true },
+ *   { name: 'Music', isFavorite: false },
+ * ];
+ * const sortedFolders = sortFolders(folders);
+ * // sortedFolders will be:
+ * // [
+ * //   { name: 'Photos', isFavorite: true },
+ * //   { name: 'Documents', isFavorite: false },
+ * //   { name: 'Music', isFavorite: false },
+ * // ]
+ *
+ * @throws {TypeError} Throws an error if the input is not an array of Folder objects.
+ */
 const sortFolders = (folders: Folder[]): Folder[] => {
   return [...folders].sort((a, b) => {
     // First sort by favorites
