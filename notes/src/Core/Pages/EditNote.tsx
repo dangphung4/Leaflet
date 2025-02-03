@@ -66,7 +66,6 @@ export default function EditNote() {
     strikethrough: false
   });
   const [isExporting, setIsExporting] = useState(false);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   // Set up real-time listener for the note
   useEffect(() => {
@@ -193,24 +192,18 @@ export default function EditNote() {
 
   const login = useGoogleLogin({
     onSuccess: async (response) => {
-      setAccessToken(response.access_token);
-      // Immediately try to export after getting the token
       try {
-        setIsExporting(true);
-        await exportToGoogleDocs(note?.content || '[]', response.access_token);
-        toast({
-          title: "Note exported",
-          description: "Successfully exported as Google Doc",
-        });
+        // Save the token
+        await db.saveGoogleToken(response.access_token, response.expires_in);
+        // Immediately try to export after saving the token
+        await handleExport('googledoc');
       } catch (error) {
-        console.error('Error exporting note:', error);
+        console.error('Google Login Error:', error);
         toast({
-          title: "Export failed",
-          description: error instanceof Error ? error.message : "Failed to export note",
-          variant: "destructive",
+          title: "Login Failed",
+          description: "Failed to login to Google",
+          variant: "destructive"
         });
-      } finally {
-        setIsExporting(false);
       }
     },
     onError: (error) => {
@@ -234,6 +227,16 @@ export default function EditNote() {
       let content = '';
       const parsedContent = JSON.parse(note.content);
       let docxBlob: Blob | null = null;
+      
+      // Get token before switch if needed
+      let token: string | null = null;
+      if (format === 'googledoc') {
+        token = await db.getGoogleToken();
+        if (!token) {
+          login();
+          return;
+        }
+      }
       
       switch (format) {
         case 'markdown':
@@ -262,15 +265,11 @@ export default function EditNote() {
           }
           break;
         case 'googledoc':
-          if (!accessToken) {
-            login();
-            return;
-          }
-          await exportToGoogleDocs(note.content, accessToken);
+          await exportToGoogleDocs(note.content, token!);
           break;
       }
 
-      if (format !== 'googledoc') { // Don't show success toast for Google Doc here since it's handled in login callback
+      if (format !== 'googledoc' || format === 'googledoc' && await db.getGoogleToken()) {
         toast({
           title: "Note exported",
           description: `Successfully exported as ${format.toUpperCase()}`,
@@ -278,11 +277,16 @@ export default function EditNote() {
       }
     } catch (error) {
       console.error('Error exporting note:', error);
-      toast({
-        title: "Export failed",
-        description: error instanceof Error ? error.message : "Failed to export note",
-        variant: "destructive",
-      });
+      // If the error is due to an invalid token, try to login again
+      if (format === 'googledoc' && error instanceof Error && error.message.includes('401')) {
+        login();
+      } else {
+        toast({
+          title: "Export failed",
+          description: error instanceof Error ? error.message : "Failed to export note",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsExporting(false);
     }

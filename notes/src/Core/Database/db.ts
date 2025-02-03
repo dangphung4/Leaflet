@@ -189,6 +189,13 @@ export interface DailyProgress {
   updatedAt: Date;
 }
 
+export interface GoogleToken {
+  id?: number;
+  accessToken: string;
+  expiresAt: Date;
+  userId: string;
+}
+
 // Add to your existing interface for user preferences
 interface UserPreferences {
   editorFont?: string;
@@ -210,13 +217,14 @@ class NotesDB extends Dexie {
   tasks!: Dexie.Table<Task, number>;
   habitTrackers!: Dexie.Table<HabitTracker, number>;
   dailyProgress!: Dexie.Table<DailyProgress, number>;
+  googleTokens!: Dexie.Table<GoogleToken, number>;
 
   /**
    *
    */
   constructor() {
     super("NotesDB");
-    this.version(8).stores({
+    this.version(9).stores({
       notes: "++id, firebaseId, title, updatedAt, folderId",
       calendarEvents: "++id, firebaseId, startDate, endDate, ownerUserId",
       tags: "++id, name, group",
@@ -225,7 +233,8 @@ class NotesDB extends Dexie {
       pomodoroSessions: "++id, firebaseId, noteId, taskId, startTime, status, createdBy",
       tasks: "++id, firebaseId, title, status, dueDate, noteId, parentTaskId, createdBy",
       habitTrackers: "++id, firebaseId, habitName, frequency, startDate, createdBy",
-      dailyProgress: "++id, firebaseId, date, createdBy"
+      dailyProgress: "++id, firebaseId, date, createdBy",
+      googleTokens: "++id, userId, accessToken, expiresAt"
     });
     this.notes = this.table("notes");
     this.tags = this.table("tags");
@@ -235,6 +244,7 @@ class NotesDB extends Dexie {
     this.tasks = this.table("tasks");
     this.habitTrackers = this.table("habitTrackers");
     this.dailyProgress = this.table("dailyProgress");
+    this.googleTokens = this.table("googleTokens");
   }
 
   // Load notes from Firebase
@@ -1946,6 +1956,44 @@ class NotesDB extends Dexie {
       console.error("Error updating daily progress:", error);
       throw error;
     }
+  }
+
+  // Google OAuth token methods
+  async saveGoogleToken(token: string, expiresIn: number): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) throw new Error("User not authenticated");
+
+    const expiresAt = new Date(Date.now() + expiresIn * 1000);
+    
+    // Delete any existing tokens for this user
+    await this.googleTokens.where('userId').equals(user.uid).delete();
+    
+    // Save new token
+    await this.googleTokens.add({
+      userId: user.uid,
+      accessToken: token,
+      expiresAt
+    });
+  }
+
+  async getGoogleToken(): Promise<string | null> {
+    const user = auth.currentUser;
+    if (!user) return null;
+
+    const token = await this.googleTokens
+      .where('userId')
+      .equals(user.uid)
+      .first();
+
+    if (!token) return null;
+
+    // Check if token is expired
+    if (token.expiresAt < new Date()) {
+      await this.googleTokens.delete(token.id!);
+      return null;
+    }
+
+    return token.accessToken;
   }
 }
 

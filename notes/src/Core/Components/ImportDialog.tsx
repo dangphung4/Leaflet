@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,10 +53,6 @@ interface GoogleDocsParagraphElement {
     content?: string;
   };
 }
-
-// Store the access token in memory
-let currentAccessToken: string | null = null;
-
 
 /**
  *
@@ -116,6 +112,118 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [showGoogleDocs, setShowGoogleDocs] = useState(false);
   const { toast } = useToast();
+
+  // Check for existing token on mount
+  useEffect(() => {
+    const checkExistingToken = async () => {
+      const token = await db.getGoogleToken();
+      if (token) {
+        loadGoogleDocs(token);
+      }
+    };
+    checkExistingToken();
+  }, []);
+
+  const loadGoogleDocs = async (accessToken: string) => {
+    try {
+      setIsLoadingDocs(true);
+      const driveResponse = await fetch(
+        'https://www.googleapis.com/drive/v3/files?q=mimeType%3D%27application/vnd.google-apps.document%27&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc',
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          }
+        }
+      );
+
+      if (!driveResponse.ok) {
+        throw new Error('Failed to fetch documents');
+      }
+
+      const data = await driveResponse.json();
+      setDocs(data.files || []);
+      setShowGoogleDocs(true);
+    } catch (error) {
+      console.error('Error listing docs:', error);
+      toast({
+        title: "Failed to load documents",
+        description: "Could not fetch your Google Docs",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingDocs(false);
+    }
+  };
+
+  const login = useGoogleLogin({
+    onSuccess: async (response) => {
+      try {
+        // Save the token
+        await db.saveGoogleToken(response.access_token, response.expires_in);
+        // Load docs with the new token
+        await loadGoogleDocs(response.access_token);
+      } catch (error) {
+        console.error('Error in Google login:', error);
+        toast({
+          title: "Login Failed",
+          description: "Failed to login to Google",
+          variant: "destructive"
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('Google Login Error:', error);
+      toast({
+        title: "Login Failed",
+        description: "Failed to login to Google",
+        variant: "destructive"
+      });
+    },
+    scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/documents.readonly'
+  });
+
+  const handleGoogleDocsImport = async (docId: string) => {
+    try {
+      setIsImporting(true);
+      
+      const token = await db.getGoogleToken();
+      if (!token) {
+        login();
+        return;
+      }
+
+      const { content, title } = await getGoogleDocsContent(token, docId);
+      const blocks = convertTextToBlockNoteContent(content);
+      
+      await db.createNote({
+        title,
+        content: blocks,
+        type: "note",
+      });
+      
+      toast({
+        title: "Import successful",
+        description: `Created note: ${title}`,
+      });
+
+      setIsOpen(false);
+      onImportComplete?.();
+    } catch (error) {
+      console.error('Error importing Google Doc:', error);
+      // If the error is due to an invalid token, try to login again
+      if (error instanceof Error && error.message.includes('401')) {
+        login();
+      } else {
+        toast({
+          title: "Import failed",
+          description: "Failed to import Google Doc",
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const convertToBlockNoteContent = async (htmlContent: string) => {
     // Create a temporary editor to convert HTML to BlockNote format
@@ -351,86 +459,6 @@ export function ImportDialog({ children, onImportComplete }: ImportDialogProps) 
     }
   };
 
-  const handleGoogleDocsImport = async (docId: string) => {
-    try {
-      setIsImporting(true);
-      
-      if (!currentAccessToken) {
-        throw new Error('Not authenticated with Google');
-      }
-
-      const { content, title } = await getGoogleDocsContent(currentAccessToken, docId);
-      const blocks = convertTextToBlockNoteContent(content);
-      
-      await db.createNote({
-        title,
-        content: blocks,
-        type: "note",
-      });
-      
-      toast({
-        title: "Import successful",
-        description: `Created note: ${title}`,
-      });
-
-      setIsOpen(false);
-      onImportComplete?.();
-    } catch (error) {
-      console.error('Error importing Google Doc:', error);
-      toast({
-        title: "Import failed",
-        description: "Failed to import Google Doc",
-        variant: "destructive"
-      });
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const login = useGoogleLogin({
-    onSuccess: async (response) => {
-      try {
-        setIsLoadingDocs(true);
-        currentAccessToken = response.access_token;
-        
-        const driveResponse = await fetch(
-          'https://www.googleapis.com/drive/v3/files?q=mimeType%3D%27application/vnd.google-apps.document%27&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc',
-          {
-            headers: {
-              'Authorization': `Bearer ${response.access_token}`,
-            }
-          }
-        );
-
-        if (!driveResponse.ok) {
-          throw new Error('Failed to fetch documents');
-        }
-
-        const data = await driveResponse.json();
-        setDocs(data.files || []);
-        setShowGoogleDocs(true);
-      } catch (error) {
-        console.error('Error listing docs:', error);
-        toast({
-          title: "Failed to load documents",
-          description: "Could not fetch your Google Docs",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoadingDocs(false);
-      }
-    },
-    onError: error => {
-      console.error('Google Login Error:', error);
-      toast({
-        title: "Login Failed",
-        description: "Failed to login to Google",
-        variant: "destructive"
-      });
-    },
-    scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/documents.readonly'
-  });
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
       setIsOpen(open);
@@ -581,7 +609,6 @@ export function GoogleDocsPicker({ onSelect, onClose }: GoogleDocsPickerProps) {
     onSuccess: async (response) => {
       try {
         setLoading(true);
-        currentAccessToken = response.access_token;
         
         const driveResponse = await fetch('https://www.googleapis.com/drive/v3/files?q=mimeType%3D%27application/vnd.google-apps.document%27&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc', {
           headers: {
