@@ -1316,6 +1316,28 @@ export default function Notes() {
     localStorage.setItem("notes-view", view);
   }, [view]);
 
+  /**
+   * Asynchronously loads the initial data for the application, including owned notes,
+   * shares related to those notes, shared notes, tags, and folders.
+   *
+   * This function performs the following actions:
+   * - Checks if the user is authenticated. If not, it exits early.
+   * - Sets the loading state to true while data is being fetched.
+   * - Retrieves owned notes from the Firestore database based on the current user's ID.
+   * - Fetches shares for owned notes and shares where the current user is the recipient.
+   * - Combines owned notes and shared notes into a unique list.
+   * - Loads tags and folders associated with the user.
+   *
+   * @throws {Error} Throws an error if there is an issue during data retrieval.
+   *
+   * @example
+   * // Call the function to load initial data
+   * loadInitialData().then(() => {
+   *   console.log('Initial data loaded successfully');
+   * }).catch((error) => {
+   *   console.error('Failed to load initial data:', error);
+   * });
+   */
   const loadInitialData = async () => {
     if (!user) return;
     
