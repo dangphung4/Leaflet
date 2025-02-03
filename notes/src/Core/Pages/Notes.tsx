@@ -26,8 +26,8 @@ import {
 } from "firebase/firestore";
 import { db as firestore } from "../Auth/firebase";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getPreviewText, formatTimeAgo } from "../utils/noteUhttps://lh3.googleusercontent.com/a/ACg8ocL3ZjUzxDMQq_GnwfwfjyEhqwUgf7lnGumf7Rv9gWUoSeye5w=s96-c
-
+import { getPreviewText, formatTimeAgo } from "../utils/noteUtils";
+import type { Note, Tags } from "../Database/db";
 import {
   LayoutGridIcon,
   LayoutListIcon,
