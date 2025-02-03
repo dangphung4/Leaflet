@@ -1035,6 +1035,7 @@ interface StoredFoldersPreferences {
   viewMode: 'list' | 'grid';
   sortOption: 'name' | 'updated' | 'created' | 'notes';
   sortDirection: 'asc' | 'desc';
+  expandedFolders: string[];
 }
 
 /**
@@ -1076,6 +1077,14 @@ export default function Folders() {
       return preferences.sortDirection;
     }
     return 'asc';
+  });
+  const [expandedFolders, setExpandedFolders] = useState<string[]>(() => {
+    const stored = localStorage.getItem('folders-preferences');
+    if (stored) {
+      const preferences = JSON.parse(stored) as StoredFoldersPreferences;
+      return preferences.expandedFolders || [];
+    }
+    return [];
   });
 
   const sortFolders = (foldersToSort: FolderNode[]): FolderNode[] => {
@@ -1136,7 +1145,7 @@ export default function Folders() {
         folderMap.set(folder.id, { 
           ...folder, 
           children: [],
-          isExpanded: false,
+          isExpanded: expandedFolders.includes(folder.id),
           isFavorite: folder.isFavorite || false
         });
       });
@@ -1175,17 +1184,26 @@ export default function Folders() {
     loadData();
   }, []);
 
-  // Add effect to persist preferences
+  // Add effect to persist preferences including expanded folders
   useEffect(() => {
     const preferences: StoredFoldersPreferences = {
       viewMode,
       sortOption,
       sortDirection,
+      expandedFolders,
     };
     localStorage.setItem('folders-preferences', JSON.stringify(preferences));
-  }, [viewMode, sortOption, sortDirection]);
+  }, [viewMode, sortOption, sortDirection, expandedFolders]);
 
   const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const isCurrentlyExpanded = prev.includes(folderId);
+      const newExpandedFolders = isCurrentlyExpanded
+        ? prev.filter(id => id !== folderId)
+        : [...prev, folderId];
+      return newExpandedFolders;
+    });
+
     const toggleNode = (nodes: FolderNode[]): FolderNode[] => {
       return nodes.map(node => {
         if (node.id === folderId) {
