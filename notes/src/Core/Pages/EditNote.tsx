@@ -474,33 +474,49 @@ export default function EditNote() {
    * });
    */
   const convertToDocx = async (blocks: any[]): Promise<Blob> => {
+    if (!Array.isArray(blocks)) {
+      throw new Error('Invalid content format');
+    }
+
     const doc = new Document({
       sections: [{
         properties: {},
         children: blocks.map(block => {
-          const textContent = block.content.map((c: any) => {
-            const text = new TextRun({
-              text: c.text || '',
-              bold: c.styles?.bold,
-              italics: c.styles?.italic,
-              underline: c.styles?.underline,
-              strike: c.styles?.strike,
-            });
-            return text;
-          });
+          if (!block || typeof block !== 'object') return new Paragraph({});
+
+          // Safely get text runs from content
+          const getTextRuns = (content: any[]): TextRun[] => {
+            if (!Array.isArray(content)) return [];
+            return content.reduce((runs: TextRun[], c) => {
+              if (!c || typeof c !== 'object') return runs;
+              const text = c.text || '';
+              if (!text) return runs;
+              
+              runs.push(new TextRun({
+                text,
+                bold: c.styles?.bold,
+                italics: c.styles?.italic,
+                underline: c.styles?.underline,
+                strike: c.styles?.strike,
+              }));
+              return runs;
+            }, []);
+          };
+
+          const textRuns = block.content ? getTextRuns(block.content) : [];
 
           switch (block.type) {
             case 'heading': {
               const level = block.props?.level || 1;
               const headingType = `HEADING_${level}` as keyof typeof HeadingLevel;
               return new Paragraph({
-                children: textContent,
+                children: textRuns,
                 heading: HeadingLevel[headingType],
               });
             }
             case 'bulletListItem':
               return new Paragraph({
-                children: textContent,
+                children: textRuns,
                 bullet: {
                   level: 0
                 },
@@ -511,7 +527,7 @@ export default function EditNote() {
               });
             case 'numberedListItem':
               return new Paragraph({
-                children: textContent,
+                children: textRuns,
                 numbering: {
                   reference: 'default-numbering',
                   level: 0
@@ -527,15 +543,15 @@ export default function EditNote() {
                   new TextRun({
                     text: block.props?.checked ? '☒ ' : '☐ ',
                   }),
-                  ...textContent
+                  ...textRuns
                 ],
               });
             default:
               return new Paragraph({
-                children: textContent,
+                children: textRuns,
               });
           }
-        }),
+        }).filter(Boolean), // Remove any undefined/null paragraphs
       }],
     });
 
@@ -569,6 +585,9 @@ export default function EditNote() {
     try {
       // Parse the blocks if they're a string
       const parsedBlocks = typeof content === 'string' ? JSON.parse(content) : content;
+      if (!Array.isArray(parsedBlocks)) {
+        throw new Error('Invalid content format');
+      }
 
       // First create an empty document
       const createResponse = await fetch('https://docs.googleapis.com/v1/documents', {
@@ -619,7 +638,18 @@ export default function EditNote() {
       let currentIndex = (note?.title || 'Untitled Note').length + 3; // +3 for title + two newlines
 
       parsedBlocks.forEach((block: any) => {
-        const text = block.content.map((c: any) => c.text || '').join('') + '\n';
+        if (!block || typeof block !== 'object') return;
+
+        // Safely get text content from block
+        const getTextContent = (content: any[]): string => {
+          if (!Array.isArray(content)) return '';
+          return content.reduce((text, c) => {
+            if (!c || typeof c !== 'object') return text;
+            return text + (c.text || '');
+          }, '');
+        };
+
+        const text = (block.content ? getTextContent(block.content) : '') + '\n';
         
         // Insert text
         requests.push({
@@ -632,10 +662,14 @@ export default function EditNote() {
         const endIndex = currentIndex + text.length;
 
         // Apply text styling
-        block.content.forEach((c: any) => {
-          if (c.text && (c.styles?.bold || c.styles?.italic || c.styles?.underline || c.styles?.strike)) {
-            const textStart = currentIndex + text.indexOf(c.text);
+        if (Array.isArray(block.content)) {
+          let textOffset = 0;
+          block.content.forEach((c: any) => {
+            if (!c || typeof c !== 'object' || !c.text) return;
+
+            const textStart = currentIndex + textOffset;
             const textEnd = textStart + c.text.length;
+            textOffset += c.text.length;
 
             if (c.styles?.bold) {
               requests.push({
@@ -673,8 +707,8 @@ export default function EditNote() {
                 }
               });
             }
-          }
-        });
+          });
+        }
 
         // Apply block styling
         switch (block.type) {
@@ -711,8 +745,6 @@ export default function EditNote() {
 
         currentIndex = endIndex;
       });
-
-      console.log('Batch update requests:', JSON.stringify(requests, null, 2));
 
       const updateResponse = await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
         method: 'POST',
