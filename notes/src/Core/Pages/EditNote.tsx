@@ -485,6 +485,30 @@ export default function EditNote() {
           if (!block || typeof block !== 'object') return new Paragraph({});
 
           // Safely get text runs from content
+          /**
+           * Transforms an array of content objects into an array of TextRun instances.
+           * Each content object should contain a 'text' property and optional style properties.
+           *
+           * @param {any[]} content - An array of content objects to be transformed.
+           * Each object should have a 'text' property and may include style properties such as:
+           * - bold: boolean
+           * - italic: boolean
+           * - underline: boolean
+           * - strike: boolean
+           *
+           * @returns {TextRun[]} An array of TextRun instances created from the content objects.
+           * If the input is not an array or if any object does not contain valid text,
+           * those objects will be ignored and not included in the output.
+           *
+           * @example
+           * const content = [
+           *   { text: 'Hello', styles: { bold: true } },
+           *   { text: 'World', styles: { italic: true } },
+           *   { text: '', styles: {} }, // This will be ignored
+           * ];
+           * const runs = getTextRuns(content);
+           * // runs will be an array containing two TextRun instances for 'Hello' and 'World'.
+           */
           const getTextRuns = (content: any[]): TextRun[] => {
             if (!Array.isArray(content)) return [];
             return content.reduce((runs: TextRun[], c) => {
@@ -641,6 +665,28 @@ export default function EditNote() {
         if (!block || typeof block !== 'object') return;
 
         // Safely get text content from block
+        /**
+         * Extracts and concatenates the text content from an array of objects.
+         *
+         * This function takes an array as input and checks if it is indeed an array.
+         * If the input is not an array, it returns an empty string. For each object
+         * in the array, it attempts to retrieve the `text` property and concatenates
+         * these values into a single string.
+         *
+         * @param {any[]} content - An array of objects from which to extract text content.
+         * @returns {string} The concatenated text content from the objects in the array.
+         * If the input is not an array or contains non-object elements, it returns an empty string.
+         *
+         * @example
+         * const result = getTextContent([{ text: 'Hello' }, { text: 'World' }]);
+         * console.log(result); // Outputs: 'HelloWorld'
+         *
+         * @example
+         * const result = getTextContent('Not an array');
+         * console.log(result); // Outputs: ''
+         *
+         * @throws {TypeError} Throws a TypeError if the content is not an array.
+         */
         const getTextContent = (content: any[]): string => {
           if (!Array.isArray(content)) return '';
           return content.reduce((text, c) => {
