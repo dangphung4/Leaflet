@@ -506,6 +506,29 @@ export default function EditNote() {
             if (!block || typeof block !== 'object') return new Paragraph({});
 
             // Helper function to convert content to TextRuns
+            /**
+             * Transforms an array of content objects into an array of TextRun instances.
+             * Each content object can contain text and style properties which are used to
+             * create the TextRun objects.
+             *
+             * @param {any[]} content - An array of content objects to be processed.
+             * Each object should have a 'text' property and an optional 'styles' property
+             * containing styling options such as bold, italic, underline, and strike.
+             *
+             * @returns {TextRun[]} An array of TextRun instances created from the input
+             * content. If the input is not an array or if any content object does not
+             * contain valid text, an empty array will be returned.
+             *
+             * @example
+             * const content = [
+             *   { text: 'Hello', styles: { bold: true } },
+             *   { text: 'World', styles: { italic: true } }
+             * ];
+             * const runs = getTextRuns(content);
+             * // runs will be an array of TextRun instances with the specified text and styles.
+             *
+             * @throws {TypeError} Throws an error if the input is not an array.
+             */
             const getTextRuns = (content: any[]): TextRun[] => {
               if (!Array.isArray(content)) return [];
               return content.reduce((runs: TextRun[], c) => {
