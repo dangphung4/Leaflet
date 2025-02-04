@@ -1,6 +1,6 @@
-# Notes - Offline-First PWA Note Taking App
+# Leaflet - Offline-First PWA Note Taking App
 
-<img src="/notes/public/assets/note-maskable.png" alt="Notes" width="200" height="200">
+<img src="/notes/public/assets/leaflet-maskable.png" alt="Leaflet" width="200" height="200">
 
 Creating my own note taking pwa because apple notes has been a struggle
 
