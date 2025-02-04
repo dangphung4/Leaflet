@@ -73,7 +73,6 @@ import * as Card from "@/components/ui/card";
 import * as Tabs from "@/components/ui/tabs";
 import * as Badge from "@/components/ui/badge";
 
-import "@/styles/editor.css";
 
 
 interface EditorProps {
