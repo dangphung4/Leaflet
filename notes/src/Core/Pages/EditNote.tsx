@@ -42,6 +42,8 @@ import {
 } from 'lucide-react';
 import { BlockNoteEditor } from '@blocknote/core';
 import { useGoogleLogin } from '@react-oauth/google';
+import { PDFExporter, pdfDefaultSchemaMappings } from "@blocknote/xl-pdf-exporter";
+import * as ReactPDF from "@react-pdf/renderer";
 
 /**
  * A functional component that allows users to edit a note.
@@ -236,7 +238,7 @@ export default function EditNote() {
    * markdown, plain text, HTML, DOCX, and Google Docs. It manages the necessary authentication
    * for Google Docs and provides feedback on the success or failure of the export operation.
    *
-   * @param {('markdown' | 'txt' | 'html' | 'docx' | 'googledoc')} format - The format to export the note to.
+   * @param {('markdown' | 'txt' | 'html' | 'docx' | 'googledoc' | 'pdf')} format - The format to export the note to.
    * @returns {Promise<void>} A promise that resolves when the export operation is complete.
    *
    * @throws {Error} Throws an error if the export fails due to an invalid token or other issues.
@@ -249,7 +251,7 @@ export default function EditNote() {
    * // Export a note as a Google Doc
    * await handleExport('googledoc');
    */
-  const handleExport = async (format: 'markdown' | 'txt' | 'html' | 'docx' | 'googledoc') => {
+  const handleExport = async (format: 'markdown' | 'txt' | 'html' | 'docx' | 'googledoc' | 'pdf') => {
     if (!note) return;
 
     try {
@@ -294,6 +296,15 @@ export default function EditNote() {
             URL.revokeObjectURL(url);
           }
           break;
+        case 'pdf': {
+          if (!editorRef.current) {
+            throw new Error('Editor not initialized');
+          }
+          const exporter = new PDFExporter(editorRef.current.schema, pdfDefaultSchemaMappings);
+          const pdfDocument = await exporter.toReactPDFDocument(parsedContent);
+          await ReactPDF.render(pdfDocument, `${note.title || 'Untitled'}.pdf`);
+          break;
+        }
         case 'googledoc':
           await exportToGoogleDocs(note.content, token!);
           break;
@@ -1007,6 +1018,10 @@ export default function EditNote() {
                     <DropdownMenuItem onClick={() => handleExport('docx')}>
                       <FileIcon className="h-4 w-4 mr-2" />
                       Word Document (.docx)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                      <FileIcon className="h-4 w-4 mr-2" />
+                      PDF Document (.pdf)
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       onClick={() => handleExport('googledoc')}
