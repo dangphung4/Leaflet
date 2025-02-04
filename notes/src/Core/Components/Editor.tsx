@@ -60,34 +60,6 @@ import "@fontsource/dm-mono/500.css";
 import "@fontsource/overpass-mono/400.css";
 import "@fontsource/overpass-mono/700.css";
 
-// Add these types for BlockNote theming
-type CombinedColor = {
-  text: string;
-  background: string;
-};
-
-type ColorScheme = {
-  editor: CombinedColor;
-  menu: CombinedColor;
-  tooltip: CombinedColor;
-  hovered: CombinedColor;
-  selected: CombinedColor;
-  disabled: CombinedColor;
-  shadow: string;
-  border: string;
-  sideMenu: string;
-  highlights: {
-    gray: CombinedColor;
-    brown: CombinedColor;
-    red: CombinedColor;
-    orange: CombinedColor;
-    yellow: CombinedColor;
-    green: CombinedColor;
-    blue: CombinedColor;
-    purple: CombinedColor;
-    pink: CombinedColor;
-  };
-};
 
 interface EditorProps {
   content: string; // Change to expect string since that's how it's stored
