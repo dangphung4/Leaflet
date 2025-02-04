@@ -28,7 +28,7 @@ import demoImage from "../../assets/demo.png";
 import agendaview from "../../assets/agendaview.png";
 import dayview from "../../assets/dayview.png";
 import weekview from "../../assets/weekview.png";
-import logo from "../../assets/note.svg";
+import logo from "../../assets/leaflet-maskable.png";
 import { CloudIcon, SmartphoneIcon, UserIcon, CommandIcon, TagIcon, CpuIcon, PaletteIcon, LigatureIcon, TextIcon, LinkIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTheme } from "../Theme/ThemeProvider";
@@ -85,9 +85,9 @@ export default function Home() {
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-20 text-center">
         <div className="flex justify-center mb-4">
-          <img src={logo} alt="Notes Logo" className="h-24 w-24" />
+          <img src={logo} alt="Leaflet Logo" className="h-32 w-32 rounded-lg" />
         </div>
-        <h1 className="text-5xl font-bold tracking-tight mb-6">Notes app ig</h1>
+        <h1 className="text-5xl font-bold tracking-tight mb-6">Leaflet</h1>
         <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
           A minimalist note-taking app because screw apple notes. Clean, fast,
           and focused on what matters most - your thoughts.

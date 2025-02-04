@@ -803,7 +803,7 @@ class NotesDB extends Dexie {
       await navigator.serviceWorker.ready.then((registration) => {
         registration.showNotification(event.title, {
           body: `Reminder: ${event.title} starts in ${event.reminderMinutes} minutes`,
-          icon: "/note-maskable.png",
+          icon: "/leaflet-maskable.png",
           tag: `event-${event.id}`,
           data: {
             eventId: event.id,

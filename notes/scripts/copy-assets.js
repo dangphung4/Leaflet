@@ -8,6 +8,8 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 const assets = [
+  'leaflet-maskable.png',
+  'leaflet-maskable.svg',
   'demo.png',
   'dayview.png',
   'weekview.png',

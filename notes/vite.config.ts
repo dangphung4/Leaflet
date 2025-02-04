@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['assets/*.svg'],
       manifest: {
-        name: 'Notes ig',
-        short_name: 'Notes ig',
+        name: 'Leaflet',
+        short_name: 'Leaflet',
         description: 'A minimalist note-taking app with cloud sync, dark mode, and offline support.',
         theme_color: '#000000',
         background_color: '#000000',
@@ -22,31 +22,31 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'src/assets/note.svg',
+            src: 'src/assets/leaflet-maskable.svg',
             sizes: '512x512',
             type: 'image/svg+xml',
             purpose: 'any'
           },
           {
-            src: 'src/assets/note-maskable.svg',
+            src: 'src/assets/leaflet-maskable.svg',
             sizes: '512x512',
             type: 'image/svg+xml',
             purpose: 'maskable'
           },
           {
-            src: 'src/assets/note192.svg',
+            src: 'src/assets/leaflet-maskable.svg',
             sizes: '192x192',
             type: 'image/svg+xml',
             purpose: 'any'
           },
           {
-            src: 'src/assets/note512.svg',
+            src: 'src/assets/leaflet-maskable.svg',
             sizes: '512x512',
             type: 'image/svg+xml',
             purpose: 'any'
           },
           {
-            src: 'src/assets/note180.svg',
+            src: 'src/assets/leaflet-maskable.svg',
             sizes: '180x180',
             type: 'image/svg+xml',
             purpose: 'apple-touch-icon'
@@ -54,7 +54,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 7 * 1024 * 1024,
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,svg,png,ico,txt}'],
         runtimeCaching: [
           {

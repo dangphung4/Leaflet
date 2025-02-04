@@ -3,43 +3,95 @@
 import { Note } from '../Database/db';
 
 /**
- *
- * @param content
- * @param maxLength
+ * Represents a preview block with text content and styles
  */
-export function getPreviewText(content: string, maxLength: number = 200): string {
+export interface PreviewBlock {
+  type: 'text' | 'heading' | 'bulletList' | 'numberedList' | 'checkList';
+  content: Array<{
+    text: string;
+    styles?: {
+      bold?: boolean;
+      italic?: boolean;
+      underline?: boolean;
+      strikethrough?: boolean;
+      textColor?: string;
+      backgroundColor?: string;
+      code?: boolean;
+    };
+  }>;
+  level?: number;
+  checked?: boolean;
+}
+
+/**
+ * Converts BlockNote content to a structured preview format
+ */
+export function getPreviewText(content: string, maxLength: number = 200): PreviewBlock[] {
   try {
     const blocks = JSON.parse(content);
-    let preview = '';
+    const preview: PreviewBlock[] = [];
+    let totalLength = 0;
 
-    blocks.forEach((block: any) => {
-      if (block.type === 'heading') {
-        preview += `# ${block.content.map((c: any) => c.text).join('')}\n`;
-      } else if (block.type === 'bulletListItem') {
-        preview += `• ${block.content.map((c: any) => c.text).join('')}\n`;
-      } else if (block.type === 'numberedListItem') {
-        preview += `1. ${block.content.map((c: any) => c.text).join('')}\n`;
-      } else if (block.type === 'checkListItem') {
-        preview += `☐ ${block.content.map((c: any) => c.text).join('')}\n`;
-      } else if (block.type === 'paragraph') {
-        preview += `${block.content.map((c: any) => {
-          let text = c.text;
-          if (c.styles) {
-            if (c.styles.bold) text = `**${text}**`;
-            if (c.styles.italic) text = `_${text}_`;
-            if (c.styles.underline) text = `__${text}__`;
-            if (c.styles.strikethrough) text = `~~${text}~~`;
-          }
-          return text;
-        }).join('')}\n`;
+    for (const block of blocks) {
+      if (totalLength >= maxLength) break;
+
+      const previewBlock: PreviewBlock = {
+        type: 'text',
+        content: []
+      };
+
+      switch (block.type) {
+        case 'heading':
+          previewBlock.type = 'heading';
+          previewBlock.level = block.props?.level || 1;
+          break;
+        case 'bulletListItem':
+          previewBlock.type = 'bulletList';
+          break;
+        case 'numberedListItem':
+          previewBlock.type = 'numberedList';
+          break;
+        case 'checkListItem':
+          previewBlock.type = 'checkList';
+          previewBlock.checked = block.props?.checked || false;
+          break;
+        default:
+          previewBlock.type = 'text';
       }
-    });
 
-    return preview.length > maxLength 
-      ? preview.slice(0, maxLength) + '...'
-      : preview;
+      // Process inline content with styles
+      if (Array.isArray(block.content)) {
+        for (const item of block.content) {
+          if (totalLength >= maxLength) break;
+
+          const textLength = item.text?.length || 0;
+          if (totalLength + textLength > maxLength) {
+            // Truncate text if it would exceed maxLength
+            previewBlock.content.push({
+              text: item.text.slice(0, maxLength - totalLength) + '...',
+              styles: item.styles
+            });
+            totalLength = maxLength;
+            break;
+          }
+
+          previewBlock.content.push({
+            text: item.text,
+            styles: item.styles
+          });
+          totalLength += textLength;
+        }
+      }
+
+      if (previewBlock.content.length > 0) {
+        preview.push(previewBlock);
+      }
+    }
+
+    return preview;
   } catch (e) {
-    return '';
+    console.error('Error parsing BlockNote content:', e);
+    return [];
   }
 }
 

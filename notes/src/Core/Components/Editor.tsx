@@ -1,12 +1,12 @@
 import "@blocknote/core/fonts/inter.css";
 // TODO: eventually move to shadcn instead of mantime,  @blocknote/shadcn
 // TODO: although this means we will have to edit styles again of editor component
-// import { BlockNoteView } from "@blocknote/mantine";
-import { BlockNoteView } from "@blocknote/shadcn";
+import { BlockNoteView } from "@blocknote/mantine";
+// import { BlockNoteView } from "@blocknote/shadcn";
 
 // this will use shadcn styles ex: @blocknote/shadcn/style.css
-// import "@blocknote/mantine/style.css";
-import "@blocknote/shadcn/style.css";
+import "@blocknote/mantine/style.css";
+// import "@blocknote/shadcn/style.css";
 import "@blocknote/core/fonts/inter.css";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteEditor } from "@blocknote/core";
@@ -60,20 +60,6 @@ import "@fontsource/dm-mono/500.css";
 import "@fontsource/overpass-mono/400.css";
 import "@fontsource/overpass-mono/700.css";
 
-// Import shadcn components
-import * as Button from "@/components/ui/button";
-import * as Select from "@/components/ui/select";
-import * as DropdownMenu from "@/components/ui/dropdown-menu";
-import * as Popover from "@/components/ui/popover";
-import * as Toggle from "@/components/ui/toggle";
-import * as Form from "@/components/ui/form";
-import * as Input from "@/components/ui/input";
-import * as Label from "@/components/ui/label";
-import * as Card from "@/components/ui/card";
-import * as Tabs from "@/components/ui/tabs";
-import * as Badge from "@/components/ui/badge";
-
-
 
 interface EditorProps {
   content: string; // Change to expect string since that's how it's stored
@@ -92,41 +78,6 @@ interface EditorProps {
  * @param root0.editorRef
  */
 
-// TODO BLOCK NOTE THEME TYPES FOR INTEGRATING IN EDITOR
-// type CombinedColor = Partial<{
-//   text: string;
-//   background: string;
-// }>;
-
-// type ColorScheme = Partial<{
-//   editor: CombinedColor;
-//   menu: CombinedColor;
-//   tooltip: CombinedColor;
-//   hovered: CombinedColor;
-//   selected: CombinedColor;
-//   disabled: CombinedColor;
-//   shadow: string;
-//   border: string;
-//   sideMenu: string;
-//   highlights: Partial<{
-//     gray: CombinedColor;
-//     brown: CombinedColor;
-//     red: CombinedColor;
-//     orange: CombinedColor;
-//     yellow: CombinedColor;
-//     green: CombinedColor;
-//     blue: CombinedColor;
-//     purple: CombinedColor;
-//     pink: CombinedColor;
-//   }>;
-// }>;
-
-// type BlockNoteTheme = Partial<{
-//     colors: ColorScheme;
-//     borderRadius: number;
-//     fontFamily: string;
-//   }>;
-
 /**
  *
  * @param root0
@@ -142,7 +93,7 @@ export default function Editor({
   editorRef,
 }: EditorProps) {
   const { user } = useAuth();
-  const { theme: currentMode, currentTheme } = useTheme();
+  const { theme: currentMode, currentTheme, editorFont } = useTheme();
   
   const getEffectiveTheme = (mode: 'light' | 'dark' | 'system') => {
     if (mode === 'system') {
@@ -164,48 +115,46 @@ export default function Editor({
 
   // Set CSS variables for theming
   useEffect(() => {
-    const root = document.documentElement;
     const mode = getEffectiveTheme(currentMode);
     const colors = themes[currentTheme][mode];
+    const style = document.createElement('style');
+    
+    style.textContent = `
+      .bn-container {
+        --bn-colors-editor-text: hsl(${colors.foreground});
+        --bn-colors-editor-background: hsl(${colors.background});
+        --bn-colors-menu-text: hsl(${colors.popoverForeground});
+        --bn-colors-menu-background: hsl(${colors.popover});
+        --bn-colors-tooltip-text: hsl(${colors.popoverForeground});
+        --bn-colors-tooltip-background: hsl(${colors.popover});
+        --bn-colors-hovered-text: hsl(${colors.accent});
+        --bn-colors-hovered-background: hsl(${colors.accent}/0.1);
+        --bn-colors-selected-text: hsl(${colors.primary});
+        --bn-colors-selected-background: hsl(${colors.primary}/0.1);
+        --bn-colors-disabled-text: hsl(${colors.mutedForeground});
+        --bn-colors-disabled-background: hsl(${colors.muted});
+        --bn-colors-shadow: hsl(${colors.border});
+        --bn-colors-border: hsl(${colors.border});
+        --bn-colors-side-menu: hsl(${colors.muted});
+        --bn-font-family: ${editorFont};
+        --bn-border-radius: 6px;
+      }
 
-    root.style.setProperty('--bn-colors-editor-text', `hsl(${colors.foreground})`);
-    root.style.setProperty('--bn-colors-editor-background', `hsl(${colors.background})`);
-    root.style.setProperty('--bn-colors-menu-text', `hsl(${colors.popoverForeground})`);
-    root.style.setProperty('--bn-colors-menu-background', `hsl(${colors.popover})`);
-    root.style.setProperty('--bn-colors-tooltip-text', `hsl(${colors.popoverForeground})`);
-    root.style.setProperty('--bn-colors-tooltip-background', `hsl(${colors.popover})`);
-    root.style.setProperty('--bn-colors-hovered-text', `hsl(${colors.accent})`);
-    root.style.setProperty('--bn-colors-hovered-background', `hsl(${colors.accent}/10)`);
-    root.style.setProperty('--bn-colors-selected-text', `hsl(${colors.primary})`);
-    root.style.setProperty('--bn-colors-selected-background', `hsl(${colors.primary}/10)`);
+      .bn-container[data-color-scheme="${mode}"] {
+        color-scheme: ${mode};
+      }
 
-    root.style.setProperty('--bn-colors-highlights-gray-text', `hsl(${colors.foreground})`);
-    root.style.setProperty('--bn-colors-highlights-gray-background', `hsl(var(--muted) / 0.3)`);
-    
-    root.style.setProperty('--bn-colors-highlights-brown-text', `hsl(30 24% 20%)`);
-    root.style.setProperty('--bn-colors-highlights-brown-background', `hsl(30 24% 80% / 0.3)`);
-    
-    root.style.setProperty('--bn-colors-highlights-red-text', `hsl(0 72% 35%)`);
-    root.style.setProperty('--bn-colors-highlights-red-background', `hsl(0 72% 80% / 0.3)`);
-    
-    root.style.setProperty('--bn-colors-highlights-orange-text', `hsl(24 75% 35%)`);
-    root.style.setProperty('--bn-colors-highlights-orange-background', `hsl(24 75% 80% / 0.3)`);
-    
-    root.style.setProperty('--bn-colors-highlights-yellow-text', `hsl(45 75% 35%)`);
-    root.style.setProperty('--bn-colors-highlights-yellow-background', `hsl(45 75% 80% / 0.3)`);
-    
-    root.style.setProperty('--bn-colors-highlights-green-text', `hsl(120 45% 35%)`);
-    root.style.setProperty('--bn-colors-highlights-green-background', `hsl(120 45% 80% / 0.3)`);
-    
-    root.style.setProperty('--bn-colors-highlights-blue-text', `hsl(210 75% 35%)`);
-    root.style.setProperty('--bn-colors-highlights-blue-background', `hsl(210 75% 80% / 0.3)`);
-    
-    root.style.setProperty('--bn-colors-highlights-purple-text', `hsl(270 75% 35%)`);
-    root.style.setProperty('--bn-colors-highlights-purple-background', `hsl(270 75% 80% / 0.3)`);
-    
-    root.style.setProperty('--bn-colors-highlights-pink-text', `hsl(330 75% 35%)`);
-    root.style.setProperty('--bn-colors-highlights-pink-background', `hsl(330 75% 80% / 0.3)`);
-  }, [currentMode, currentTheme, getEffectiveTheme]);
+      .bn-editor {
+        background-color: hsl(${colors.background});
+        color: hsl(${colors.foreground});
+      }
+    `;
+
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, [currentMode, currentTheme, editorFont, getEffectiveTheme]);
 
   // Set editor reference if provided
   useEffect(() => {
@@ -260,30 +209,15 @@ export default function Editor({
     [onChange, onSave]
   );
 
-
   return (
     <div className="flex flex-col flex-1 h-full w-full bg-background overflow-hidden">
       <BlockNoteView
         editor={editor}
         theme={getEffectiveTheme(currentMode)}
         onChange={() => debouncedSave(editor)}
-        shadCNComponents={{
-          Button,
-          Select,
-          DropdownMenu,
-          Popover,
-          Toggle,
-          Form,
-          Input,
-          Label,
-          Card,
-          Tabs,
-          Badge
-        }}
         className={cn(
           "flex-1 h-full overflow-y-auto mobile-editor relative",
           "[&_.ProseMirror]:min-h-[calc(100vh-8rem)] [&_.ProseMirror]:p-4",
-          //  (desktop) size is smaller, mobile is slightly larger
           "[&_.ProseMirror]:text-base [&_.ProseMirror]:max-sm:text-lg",
         )}
       />

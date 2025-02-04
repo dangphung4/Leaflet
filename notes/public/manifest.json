@@ -1,6 +1,6 @@
 {
-  "name": "Notes ig",
-  "short_name": "Notes ig",
+  "name": "Leaflet",
+  "short_name": "Leaflet",
   "description": "A minimalist note-taking app with cloud sync, dark mode, and offline support. Built because I dont like apple notes.",
   "start_url": "/",
   "display": "standalone",
@@ -9,13 +9,13 @@
   "theme_color": "#000000",
   "icons": [
     {
-      "src": "note-maskable.png",
+      "src": "leaflet-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "note-rounded.png",
+      "src": "leaflet-rounded.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
@@ -28,7 +28,7 @@
       "short_name": "New",
       "description": "Create a new note",
       "url": "/notes/new",
-      "icons": [{ "src": "note-maskable.png", "sizes": "512x512" }]
+      "icons": [{ "src": "leaflet-maskable.png", "sizes": "512x512" }]
     }
   ]
 } 
