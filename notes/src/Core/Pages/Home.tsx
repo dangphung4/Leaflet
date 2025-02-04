@@ -1110,7 +1110,7 @@ export default function Home() {
           <Button
             variant="outline"
             onClick={() =>
-              window.open("https://github.com/dangphung4/notes", "_blank")
+              window.open("https://github.com/dangphung4/leaflet", "_blank")
             }
           >
             <GitHubLogoIcon className="mr-2 h-4 w-4" /> View on GitHub
