@@ -122,8 +122,8 @@ self.addEventListener('push', (event) => {
     
     const options: NotificationOptions = {
       body: data.body,
-      icon: '/note-maskable.png',
-      badge: '/note-maskable.png',
+      icon: '/leaflet-maskable.png',
+      badge: '/leaflet-maskable.png',
       data: data.data,
       tag: data.tag || 'default',
       requireInteraction: true,

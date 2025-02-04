@@ -43,7 +43,7 @@ export default function Install() {
             <CardContent className="space-y-4">
               <ol className="list-decimal list-inside space-y-4">
                 <li>Open Safari on your iOS device</li>
-                <li>Visit <code className="bg-muted px-2 py-1 rounded">notes-lemon-nine.vercel.app</code></li>
+                <li>Visit <code className="bg-muted px-2 py-1 rounded">leaflet.at</code></li>
                 <li>Tap the Share button (rectangle with arrow pointing up)</li>
                 <li>Scroll down and tap "Add to Home Screen"</li>
                 <li>Tap "Add" in the top right corner</li>
@@ -68,7 +68,7 @@ export default function Install() {
             <CardContent className="space-y-4">
               <ol className="list-decimal list-inside space-y-4">
                 <li>Open Chrome on your Android device</li>
-                <li>Visit <code className="bg-muted px-2 py-1 rounded">notes-lemon-nine.vercel.app</code></li>
+                <li>Visit <code className="bg-muted px-2 py-1 rounded">leaflet.at</code></li>
                 <li>Tap the three-dot menu in the top right</li>
                 <li>Tap "Install app" or "Add to Home screen"</li>
                 <li>Follow the prompts to install</li>
@@ -93,7 +93,7 @@ export default function Install() {
             <CardContent className="space-y-4">
               <ol className="list-decimal list-inside space-y-4">
                 <li>Open Chrome, Edge, or other Chromium-based browser</li>
-                <li>Visit <code className="bg-muted px-2 py-1 rounded">notes-lemon-nine.vercel.app</code></li>
+                <li>Visit <code className="bg-muted px-2 py-1 rounded">leaflet.at</code></li>
                 <li>Look for the install icon (⊕) in the address bar</li>
                 <li>Click "Install" when prompted</li>
               </ol>

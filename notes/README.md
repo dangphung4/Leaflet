@@ -86,3 +86,19 @@ export default tseslint.config({
   - [ ] Share to external apps (Slack, Teams, etc.)
 
 #### Infrastructure
+
+- [ ] Docker containerization
+- [ ] CI/CD pipeline
+- [ ] Monitoring and logging
+- [ ] Error tracking and reporting
+- [ ] Performance optimization
+- [ ] Security and compliance
+- [ ] Documentation and developer experience
+
+#### Documentation
+
+- [ ] User documentation
+- [ ] Developer documentation
+- [ ] API documentation
+- [ ] Release notes
+- [ ] Changelog
