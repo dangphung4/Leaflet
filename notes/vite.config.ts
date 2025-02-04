@@ -8,8 +8,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
-      includeAssets: ['assets/*.svg'],
+      registerType: 'autoUpdate',
+      includeAssets: ['assets/*.{svg,png,ico}'],
       manifest: {
         name: 'Leaflet',
         short_name: 'Leaflet',
@@ -22,34 +22,31 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'src/assets/leaflet-maskable.svg',
+            src: '/assets/leaflet-maskable.svg',
             sizes: '512x512',
             type: 'image/svg+xml',
             purpose: 'any'
           },
           {
-            src: 'src/assets/leaflet-maskable.svg',
+            src: '/assets/leaflet-maskable.svg',
             sizes: '512x512',
             type: 'image/svg+xml',
             purpose: 'maskable'
           },
           {
-            src: 'src/assets/leaflet-maskable.svg',
+            src: '/assets/leaflet-maskable.svg',
             sizes: '192x192',
             type: 'image/svg+xml',
             purpose: 'any'
-          },
+          }
+        ],
+        shortcuts: [
           {
-            src: 'src/assets/leaflet-maskable.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any'
-          },
-          {
-            src: 'src/assets/leaflet-maskable.svg',
-            sizes: '180x180',
-            type: 'image/svg+xml',
-            purpose: 'apple-touch-icon'
+            name: "New Note",
+            short_name: "New",
+            description: "Create a new note",
+            url: "/notes/new",
+            icons: [{ "src": "/assets/leaflet-maskable.svg", "sizes": "512x512" }]
           }
         ]
       },
@@ -76,10 +73,9 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/[^/?]+\.[^/]+$/],
         skipWaiting: true,
         clientsClaim: true,
-        disableDevLogs: true,
+        disableDevLogs: false,
         sourcemap: true,
-        cleanupOutdatedCaches: true,
-        mode: 'production'
+        cleanupOutdatedCaches: true
       }
     })
   ],

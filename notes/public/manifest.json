@@ -9,18 +9,23 @@
   "theme_color": "#000000",
   "icons": [
     {
-      "src": "leaflet-maskable.png",
+      "src": "/assets/leaflet-maskable.svg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/leaflet-maskable.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
       "purpose": "maskable"
     },
     {
-      "src": "leaflet-rounded.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "/assets/leaflet-maskable.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
       "purpose": "any"
     }
-
   ],
   "shortcuts": [
     {
@@ -28,7 +33,7 @@
       "short_name": "New",
       "description": "Create a new note",
       "url": "/notes/new",
-      "icons": [{ "src": "leaflet-maskable.png", "sizes": "512x512" }]
+      "icons": [{ "src": "/assets/leaflet-maskable.svg", "sizes": "512x512" }]
     }
   ]
 } 
