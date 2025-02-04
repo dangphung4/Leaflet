@@ -16,7 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { CheckIcon } from '@radix-ui/react-icons';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { Packer } from 'docx';
+import { DOCXExporter, docxDefaultSchemaMappings } from "@blocknote/xl-docx-exporter";
 import { 
   MoreVerticalIcon, 
   ChevronLeftIcon, 
@@ -42,6 +43,8 @@ import {
 } from 'lucide-react';
 import { BlockNoteEditor } from '@blocknote/core';
 import { useGoogleLogin } from '@react-oauth/google';
+import { PDFExporter, pdfDefaultSchemaMappings } from "@blocknote/xl-pdf-exporter";
+import { pdf, Text } from "@react-pdf/renderer";
 
 /**
  * A functional component that allows users to edit a note.
@@ -236,7 +239,7 @@ export default function EditNote() {
    * markdown, plain text, HTML, DOCX, and Google Docs. It manages the necessary authentication
    * for Google Docs and provides feedback on the success or failure of the export operation.
    *
-   * @param {('markdown' | 'txt' | 'html' | 'docx' | 'googledoc')} format - The format to export the note to.
+   * @param {('markdown' | 'txt' | 'html' | 'docx' | 'googledoc' | 'pdf')} format - The format to export the note to.
    * @returns {Promise<void>} A promise that resolves when the export operation is complete.
    *
    * @throws {Error} Throws an error if the export fails due to an invalid token or other issues.
@@ -249,14 +252,13 @@ export default function EditNote() {
    * // Export a note as a Google Doc
    * await handleExport('googledoc');
    */
-  const handleExport = async (format: 'markdown' | 'txt' | 'html' | 'docx' | 'googledoc') => {
+  const handleExport = async (format: 'markdown' | 'txt' | 'html' | 'docx' | 'googledoc' | 'pdf') => {
     if (!note) return;
 
     try {
       setIsExporting(true);
       let content = '';
       const parsedContent = JSON.parse(note.content);
-      let docxBlob: Blob | null = null;
       
       // Get token before switch if needed
       let token: string | null = null;
@@ -281,19 +283,48 @@ export default function EditNote() {
           content = convertToHTML(parsedContent);
           downloadFile(`${note.title || 'Untitled'}.html`, content);
           break;
-        case 'docx':
-          docxBlob = await convertToDocx(parsedContent);
-          if (docxBlob) {
-            const url = URL.createObjectURL(docxBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${note.title || 'Untitled'}.docx`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-          }
+        case 'docx': {
+          const docxBlob = await convertToDocx(parsedContent);
+          const url = URL.createObjectURL(docxBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${note.title || 'Untitled'}.docx`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
           break;
+        }
+        case 'pdf': {
+          if (!editorRef.current) {
+            throw new Error('Editor not initialized');
+          }
+          const exporter = new PDFExporter(editorRef.current.schema, {
+            ...pdfDefaultSchemaMappings,
+            blockMapping: {
+              ...pdfDefaultSchemaMappings.blockMapping,
+              paragraph: (block, exporter) => {
+                const content = exporter.transformInlineContent(block.content);
+                return (
+                  <Text style={{ margin: 10 }} key={block.id}>
+                    {content}
+                  </Text>
+                );
+              }
+            }
+          });
+          const pdfDocument = await exporter.toReactPDFDocument(parsedContent);
+          const blob = await pdf(pdfDocument).toBlob();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${note.title || 'Untitled'}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          break;
+        }
         case 'googledoc':
           await exportToGoogleDocs(note.content, token!);
           break;
@@ -448,138 +479,67 @@ export default function EditNote() {
   };
 
   /**
-   * Converts an array of content blocks into a DOCX Blob.
+   * Converts an array of blocks into a DOCX Blob using the BlockNote DOCX exporter.
    *
-   * This asynchronous function takes an array of blocks, where each block can represent different types of content,
-   * such as headings, bullet lists, numbered lists, and checklist items. It constructs a DOCX document based on the
-   * provided blocks and returns it as a Blob.
+   * This asynchronous function takes an array of blocks and converts them into a DOCX document
+   * using the BlockNote DOCX exporter. It preserves formatting, styles, and block structure.
    *
    * @param {any[]} blocks - An array of content blocks to be converted into a DOCX document.
-   * Each block should have a 'type' property indicating its type (e.g., 'heading', 'bulletListItem', etc.)
-   * and a 'content' property containing the text content.
-   *
    * @returns {Promise<Blob>} A promise that resolves to a Blob representing the generated DOCX document.
    *
    * @throws {Error} Throws an error if the document generation fails.
-   *
-   * @example
-   * const blocks = [
-   *   { type: 'heading', props: { level: 1 }, content: [{ text: 'Document Title', styles: {} }] },
-   *   { type: 'bulletListItem', content: [{ text: 'First item', styles: {} }] },
-   *   { type: 'numberedListItem', content: [{ text: 'Second item', styles: {} }] },
-   * ];
-   *
-   * convertToDocx(blocks).then(blob => {
-   *   // Handle the generated DOCX Blob (e.g., save it or upload it)
-   * });
    */
   const convertToDocx = async (blocks: any[]): Promise<Blob> => {
     if (!Array.isArray(blocks)) {
       throw new Error('Invalid content format');
     }
 
-    const doc = new Document({
-      sections: [{
-        properties: {},
-        children: blocks.map(block => {
-          if (!block || typeof block !== 'object') return new Paragraph({});
+    if (!editorRef.current) {
+      throw new Error('Editor not initialized');
+    }
 
-          // Safely get text runs from content
-          /**
-           * Transforms an array of content objects into an array of TextRun instances.
-           * Each content object should contain a 'text' property and optional style properties.
-           *
-           * @param {any[]} content - An array of content objects to be transformed.
-           * Each object should have a 'text' property and may include style properties such as:
-           * - bold: boolean
-           * - italic: boolean
-           * - underline: boolean
-           * - strike: boolean
-           *
-           * @returns {TextRun[]} An array of TextRun instances created from the content objects.
-           * If the input is not an array or if any object does not contain valid text,
-           * those objects will be ignored and not included in the output.
-           *
-           * @example
-           * const content = [
-           *   { text: 'Hello', styles: { bold: true } },
-           *   { text: 'World', styles: { italic: true } },
-           *   { text: '', styles: {} }, // This will be ignored
-           * ];
-           * const runs = getTextRuns(content);
-           * // runs will be an array containing two TextRun instances for 'Hello' and 'World'.
-           */
-          const getTextRuns = (content: any[]): TextRun[] => {
-            if (!Array.isArray(content)) return [];
-            return content.reduce((runs: TextRun[], c) => {
-              if (!c || typeof c !== 'object') return runs;
-              const text = c.text || '';
-              if (!text) return runs;
-              
-              runs.push(new TextRun({
-                text,
-                bold: c.styles?.bold,
-                italics: c.styles?.italic,
-                underline: c.styles?.underline,
-                strike: c.styles?.strike,
-              }));
-              return runs;
-            }, []);
-          };
-
-          const textRuns = block.content ? getTextRuns(block.content) : [];
-
-          switch (block.type) {
-            case 'heading': {
-              const level = block.props?.level || 1;
-              const headingType = `HEADING_${level}` as keyof typeof HeadingLevel;
-              return new Paragraph({
-                children: textRuns,
-                heading: HeadingLevel[headingType],
-              });
+    try {
+      // Create a simple exporter with minimal configuration
+      const exporter = new DOCXExporter(
+        editorRef.current.schema,
+        docxDefaultSchemaMappings,
+        {
+          resolveFileUrl: async (url: string) => {
+            try {
+              const response = await fetch(url);
+              const blob = await response.blob();
+              return new Uint8Array(await blob.arrayBuffer());
+            } catch (error) {
+              console.error('Error resolving file:', error);
+              return new Uint8Array();
             }
-            case 'bulletListItem':
-              return new Paragraph({
-                children: textRuns,
-                bullet: {
-                  level: 0
-                },
-                indent: {
-                  left: 720,
-                  firstLine: 360
-                }
-              });
-            case 'numberedListItem':
-              return new Paragraph({
-                children: textRuns,
-                numbering: {
-                  reference: 'default-numbering',
-                  level: 0
-                },
-                indent: {
-                  left: 720,
-                  firstLine: 360
-                }
-              });
-            case 'checkListItem':
-              return new Paragraph({
-                children: [
-                  new TextRun({
-                    text: block.props?.checked ? '☒ ' : '☐ ',
-                  }),
-                  ...textRuns
-                ],
-              });
-            default:
-              return new Paragraph({
-                children: textRuns,
-              });
           }
-        }).filter(Boolean), // Remove any undefined/null paragraphs
-      }],
-    });
+        }
+      );
 
-    return await Packer.toBlob(doc);
+      // Convert the blocks to a docxjs document with minimal options
+      const docxDocument = await exporter.toDocxJsDocument(blocks);
+
+      // Add metadata after document creation
+      if (docxDocument.CoreProperties) {
+        Object.assign(docxDocument.CoreProperties, {
+          title: note?.title || 'Untitled',
+          subject: 'Notes App Document',
+          creator: user?.displayName || 'Unknown',
+          description: 'Created with Notes App',
+          lastModifiedBy: user?.displayName || 'Unknown'
+        });
+      }
+
+      // Convert to blob
+      const buffer = await Packer.toBuffer(docxDocument);
+      return new Blob([buffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+      });
+    } catch (error) {
+      console.error('Error in DOCX conversion:', error);
+      throw new Error('Failed to convert document to DOCX format. Please try again.');
+    }
   };
 
   /**
@@ -1007,6 +967,10 @@ export default function EditNote() {
                     <DropdownMenuItem onClick={() => handleExport('docx')}>
                       <FileIcon className="h-4 w-4 mr-2" />
                       Word Document (.docx)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                      <FileIcon className="h-4 w-4 mr-2" />
+                      PDF Document (.pdf)
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       onClick={() => handleExport('googledoc')}
