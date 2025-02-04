@@ -43,7 +43,7 @@ import {
 import { BlockNoteEditor } from '@blocknote/core';
 import { useGoogleLogin } from '@react-oauth/google';
 import { PDFExporter, pdfDefaultSchemaMappings } from "@blocknote/xl-pdf-exporter";
-import * as ReactPDF from "@react-pdf/renderer";
+import { pdf, Text } from "@react-pdf/renderer";
 
 /**
  * A functional component that allows users to edit a note.
@@ -298,9 +298,30 @@ export default function EditNote() {
           if (!editorRef.current) {
             throw new Error('Editor not initialized');
           }
-          const exporter = new PDFExporter(editorRef.current.schema, pdfDefaultSchemaMappings);
+          const exporter = new PDFExporter(editorRef.current.schema, {
+            ...pdfDefaultSchemaMappings,
+            blockMapping: {
+              ...pdfDefaultSchemaMappings.blockMapping,
+              paragraph: (block, exporter) => {
+                const content = exporter.transformInlineContent(block.content);
+                return (
+                  <Text style={{ margin: 10 }} key={block.id}>
+                    {content}
+                  </Text>
+                );
+              }
+            }
+          });
           const pdfDocument = await exporter.toReactPDFDocument(parsedContent);
-          await ReactPDF.render(pdfDocument, `${note.title || 'Untitled'}.pdf`);
+          const blob = await pdf(pdfDocument).toBlob();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${note.title || 'Untitled'}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
           break;
         }
         case 'googledoc':
@@ -485,27 +506,6 @@ export default function EditNote() {
             if (!block || typeof block !== 'object') return new Paragraph({});
 
             // Helper function to convert content to TextRuns
-            /**
-             * Transforms an array of content objects into an array of TextRun instances.
-             * Each content object should contain a 'text' property and optional styling properties.
-             *
-             * @param {any[]} content - An array of content objects to be processed.
-             * Each object should have a 'text' property and may include a 'styles' object with
-             * optional properties: bold, italic, underline, and strike.
-             *
-             * @returns {TextRun[]} An array of TextRun instances created from the provided content.
-             * If the input is not an array or if any object does not have a valid text property,
-             * those objects will be ignored.
-             *
-             * @example
-             * const content = [
-             *   { text: 'Hello', styles: { bold: true } },
-             *   { text: 'World', styles: { italic: true } },
-             *   { text: '', styles: {} }, // This will be ignored
-             * ];
-             * const runs = getTextRuns(content);
-             * // runs will contain two TextRun instances for 'Hello' and 'World'.
-             */
             const getTextRuns = (content: any[]): TextRun[] => {
               if (!Array.isArray(content)) return [];
               return content.reduce((runs: TextRun[], c) => {
