@@ -16,8 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { CheckIcon } from '@radix-ui/react-icons';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
-import { Packer } from 'docx';
-import { DOCXExporter, docxDefaultSchemaMappings } from "@blocknote/xl-docx-exporter";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 import { 
   MoreVerticalIcon, 
   ChevronLeftIcon, 
@@ -494,48 +493,91 @@ export default function EditNote() {
       throw new Error('Invalid content format');
     }
 
-    if (!editorRef.current) {
-      throw new Error('Editor not initialized');
-    }
-
     try {
-      // Create a simple exporter with minimal configuration
-      const exporter = new DOCXExporter(
-        editorRef.current.schema,
-        docxDefaultSchemaMappings,
-        {
-          resolveFileUrl: async (url: string) => {
-            try {
-              const response = await fetch(url);
-              const blob = await response.blob();
-              return new Uint8Array(await blob.arrayBuffer());
-            } catch (error) {
-              console.error('Error resolving file:', error);
-              return new Uint8Array();
+      const doc = new Document({
+        title: note?.title || 'Untitled',
+        subject: 'Notes App Document',
+        creator: user?.displayName || 'Unknown',
+        description: 'Created with Notes App',
+        lastModifiedBy: user?.displayName || 'Unknown',
+        sections: [{
+          properties: {},
+          children: blocks.map(block => {
+            if (!block || typeof block !== 'object') return new Paragraph({});
+
+            // Helper function to convert content to TextRuns
+            const getTextRuns = (content: any[]): TextRun[] => {
+              if (!Array.isArray(content)) return [];
+              return content.reduce((runs: TextRun[], c) => {
+                if (!c || typeof c !== 'object') return runs;
+                const text = c.text || '';
+                if (!text) return runs;
+                
+                runs.push(new TextRun({
+                  text,
+                  bold: c.styles?.bold,
+                  italics: c.styles?.italic,
+                  underline: c.styles?.underline,
+                  strike: c.styles?.strike,
+                }));
+                return runs;
+              }, []);
+            };
+
+            const textRuns = block.content ? getTextRuns(block.content) : [];
+
+            switch (block.type) {
+              case 'heading': {
+                const level = block.props?.level || 1;
+                const headingType = `HEADING_${level}` as keyof typeof HeadingLevel;
+                return new Paragraph({
+                  children: textRuns,
+                  heading: HeadingLevel[headingType],
+                });
+              }
+              case 'bulletListItem':
+                return new Paragraph({
+                  children: textRuns,
+                  bullet: {
+                    level: 0
+                  },
+                  indent: {
+                    left: 720,
+                    firstLine: 360
+                  }
+                });
+              case 'numberedListItem':
+                return new Paragraph({
+                  children: textRuns,
+                  numbering: {
+                    reference: 'default-numbering',
+                    level: 0
+                  },
+                  indent: {
+                    left: 720,
+                    firstLine: 360
+                  }
+                });
+              case 'checkListItem':
+                return new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: block.props?.checked ? '☒ ' : '☐ ',
+                    }),
+                    ...textRuns
+                  ],
+                });
+              default:
+                return new Paragraph({
+                  children: textRuns,
+                });
             }
-          }
-        }
-      );
-
-      // Convert the blocks to a docxjs document with minimal options
-      const docxDocument = await exporter.toDocxJsDocument(blocks);
-
-      // Add metadata after document creation
-      if (docxDocument.CoreProperties) {
-        Object.assign(docxDocument.CoreProperties, {
-          title: note?.title || 'Untitled',
-          subject: 'Notes App Document',
-          creator: user?.displayName || 'Unknown',
-          description: 'Created with Notes App',
-          lastModifiedBy: user?.displayName || 'Unknown'
-        });
-      }
+          }).filter(Boolean), // Remove any undefined/null paragraphs
+        }],
+      });
 
       // Convert to blob
-      const buffer = await Packer.toBuffer(docxDocument);
-      return new Blob([buffer], { 
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
-      });
+      return await Packer.toBlob(doc);
     } catch (error) {
       console.error('Error in DOCX conversion:', error);
       throw new Error('Failed to convert document to DOCX format. Please try again.');
