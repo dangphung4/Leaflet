@@ -26,7 +26,7 @@ import {
 } from "firebase/firestore";
 import { db as firestore } from "../Auth/firebase";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getPreviewText, formatTimeAgo } from "../utils/noteUtils";
+import { getPreviewText, formatTimeAgo, PreviewBlock } from "../utils/noteUtils";
 import type { Note, Tags } from "../Database/db";
 import {
   LayoutGridIcon,
@@ -1005,25 +1005,7 @@ const NoteCard = ({
             {/* Preview with enhanced typography */}
             {view === "grid" && (
               <div className="text-sm text-muted-foreground/90 space-y-1 line-clamp-3">
-                {getPreviewText(localNote.content, 150)
-                  .split("\n")
-                  .map(
-                    (line, i) =>
-                      line && (
-                        <div
-                          key={i}
-                          className={cn(
-                            line.startsWith("#") &&
-                              "font-medium text-foreground",
-                            line.startsWith("•") && "pl-4",
-                            line.startsWith("1.") && "pl-4",
-                            line.startsWith("☐") && "pl-4"
-                          )}
-                        >
-                          {line}
-                        </div>
-                      )
-                  )}
+                <PreviewContent blocks={getPreviewText(localNote.content, 150)} />
               </div>
             )}
 
@@ -1217,7 +1199,7 @@ const NoteSearch = ({
                 {/* Preview */}
                 {note.content && (
                   <div className="ml-6 text-xs text-muted-foreground line-clamp-2 mt-1">
-                    {getPreviewText(note.content, 150)}
+                    <PreviewContent blocks={getPreviewText(note.content, 150)} />
                   </div>
                 )}
 
@@ -2613,3 +2595,63 @@ export default function Notes() {
     </div>
   );
 }
+
+const PreviewContent = ({ blocks }: { blocks: PreviewBlock[] }) => {
+  return (
+    <div className="space-y-1">
+      {blocks.map((block, blockIndex) => {
+        const blockContent = (
+          <div className="flex gap-2">
+            {block.type === 'bulletList' && (
+              <span className="text-muted-foreground">•</span>
+            )}
+            {block.type === 'numberedList' && (
+              <span className="text-muted-foreground">{blockIndex + 1}.</span>
+            )}
+            {block.type === 'checkList' && (
+              <span className="text-muted-foreground">
+                {block.checked ? '☑' : '☐'}
+              </span>
+            )}
+            <div className="flex-1 min-w-0">
+              {block.content.map((item: PreviewBlock['content'][0], i: number) => (
+                <span
+                  key={i}
+                  className={cn(
+                    item.styles?.bold && "font-bold",
+                    item.styles?.italic && "italic",
+                    item.styles?.underline && "underline",
+                    item.styles?.strikethrough && "line-through",
+                    item.styles?.code && "font-mono bg-muted px-1 rounded"
+                  )}
+                  style={{
+                    color: item.styles?.textColor,
+                    backgroundColor: item.styles?.backgroundColor
+                  }}
+                >
+                  {item.text}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+
+        return (
+          <div
+            key={blockIndex}
+            className={cn(
+              block.type === 'heading' && "font-semibold",
+              block.type === 'heading' && block.level === 1 && "text-base",
+              block.type === 'heading' && block.level === 2 && "text-sm",
+              block.type === 'heading' && block.level === 3 && "text-sm",
+              (block.type === 'bulletList' || block.type === 'numberedList' || block.type === 'checkList') && "pl-2",
+              "text-sm"
+            )}
+          >
+            {blockContent}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
