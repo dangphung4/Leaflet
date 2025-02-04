@@ -43,7 +43,7 @@ import {
 import { BlockNoteEditor } from '@blocknote/core';
 import { useGoogleLogin } from '@react-oauth/google';
 import { PDFExporter, pdfDefaultSchemaMappings } from "@blocknote/xl-pdf-exporter";
-import { pdf, Text } from "@react-pdf/renderer";
+import * as ReactPDF from "@react-pdf/renderer";
 
 /**
  * A functional component that allows users to edit a note.
@@ -298,30 +298,9 @@ export default function EditNote() {
           if (!editorRef.current) {
             throw new Error('Editor not initialized');
           }
-          const exporter = new PDFExporter(editorRef.current.schema, {
-            ...pdfDefaultSchemaMappings,
-            blockMapping: {
-              ...pdfDefaultSchemaMappings.blockMapping,
-              paragraph: (block, exporter) => {
-                const content = exporter.transformInlineContent(block.content);
-                return (
-                  <Text style={{ margin: 10 }} key={block.id}>
-                    {content}
-                  </Text>
-                );
-              }
-            }
-          });
+          const exporter = new PDFExporter(editorRef.current.schema, pdfDefaultSchemaMappings);
           const pdfDocument = await exporter.toReactPDFDocument(parsedContent);
-          const blob = await pdf(pdfDocument).toBlob();
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `${note.title || 'Untitled'}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
+          await ReactPDF.render(pdfDocument, `${note.title || 'Untitled'}.pdf`);
           break;
         }
         case 'googledoc':
