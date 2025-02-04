@@ -1,6 +1,6 @@
 {
-  "name": "Notes ig",
-  "short_name": "Notes ig",
+  "name": "Leaflet",
+  "short_name": "Leaflet",
   "description": "A minimalist note-taking app with cloud sync, dark mode, and offline support. Built because I dont like apple notes.",
   "start_url": "/",
   "display": "standalone",

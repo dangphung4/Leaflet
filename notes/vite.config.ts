@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['assets/*.svg'],
       manifest: {
-        name: 'Notes ig',
-        short_name: 'Notes ig',
+        name: 'Leaflet',
+        short_name: 'Leaflet',
         description: 'A minimalist note-taking app with cloud sync, dark mode, and offline support.',
         theme_color: '#000000',
         background_color: '#000000',

@@ -1,4 +1,3 @@
-
 import {
   Card,
   CardContent,
@@ -17,7 +16,7 @@ export default function Install() {
     <div className="container mx-auto px-4 py-12">
       <h1 className="text-4xl font-bold text-center mb-8">Installation Guide</h1>
       <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
-        Install Notes ig on your preferred device for the best offline-capable experience. Follow the instructions below for your platform.
+        Install Leaflet on your preferred device for the best offline-capable experience. Follow the instructions below for your platform.
       </p>
 
       <Tabs defaultValue="ios" className="max-w-3xl mx-auto">
@@ -38,7 +37,7 @@ export default function Install() {
             <CardHeader>
               <CardTitle>Install on iOS</CardTitle>
               <CardDescription>
-                Follow these steps to install Notes ig on your iPhone or iPad
+                Follow these steps to install Leaflet on your iPhone or iPad
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -63,7 +62,7 @@ export default function Install() {
             <CardHeader>
               <CardTitle>Install on Android</CardTitle>
               <CardDescription>
-                Follow these steps to install Notes ig on your Android device
+                Follow these steps to install Leaflet on your Android device
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -88,7 +87,7 @@ export default function Install() {
             <CardHeader>
               <CardTitle>Install on Desktop</CardTitle>
               <CardDescription>
-                Follow these steps to install Notes ig on your computer
+                Follow these steps to install Leaflet on your computer
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -100,7 +99,7 @@ export default function Install() {
               </ol>
               <div className="mt-4 p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">
-                  Once installed, you can launch Notes ig from your Start menu or dock like any other application.
+                  Once installed, you can launch Leaflet from your Start menu or dock like any other application.
                 </p>
               </div>
             </CardContent>
